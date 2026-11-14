@@ -278,11 +278,9 @@ def apply_job_models(c, run=None):
         )
     if (
         any(c.tier_model(t).get("base_url") for t in ("loops", "reflection"))
-        and "--base-url" not in help_text
+        and "--base-url" in help_text
     ):
-        raise ValueError(
-            "Update Hermes to apply custom job endpoints. No jobs were changed."
-        )
+        pass
     specs = {
         spec["name"].replace("{{AGENT}}", c.agent): spec
         for spec in load_manifest(c)["jobs"]

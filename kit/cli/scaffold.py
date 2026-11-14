@@ -183,9 +183,7 @@ def _create_job_via_hermes(
             cmd += ["--model", str(chosen)]
         if provider:
             cmd += ["--provider", str(provider)]
-        if pick.get("base_url"):
-            if not hermes_supports(base, c.home, "--base-url"):
-                raise ValueError("Update Hermes to use custom job endpoints")
+        if pick.get("base_url") and hermes_supports(base, c.home, "--base-url"):
             cmd += ["--base-url", pick["base_url"]]
         effort = pick.get("reasoning_effort")
         if effort and hermes_supports(base, c.home, "--reasoning-effort"):

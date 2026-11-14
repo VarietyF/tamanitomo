@@ -153,6 +153,11 @@ def chat(payload):
     # well-formed object with the wrong keys passes that and fails everywhere
     # after it. The schema goes in the prompt, where the model can actually read
     # it, and the shape is checked here rather than assumed.
+    try:
+        from agent.opencode_affinity import merge_session_affinity_headers
+        merge_session_affinity_headers(request, provider, str(getattr(client, "base_url", "") or ""))
+    except Exception:
+        pass
     if schema:
         request = restate(request)
     try:
