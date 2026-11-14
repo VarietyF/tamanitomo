@@ -111,7 +111,7 @@ def identity_block(c, use_override=True):
 
 # Visual fields that have a box of their own. Anything else in `visual` describes
 # what she is doing, so it belongs with the scene.
-OWN_BOX = {"lighting": "lighting", "framing": "camera"}
+OWN_BOX = {"lighting": "lighting", "framing": "camera", "pose": "pose"}
 
 
 def place_look(c, state, limit=160):
@@ -276,6 +276,60 @@ def feeling_text(state):
     return ", ".join(values)
 
 
+
+def generate_contextual_pose(state):
+    """Derive a vivid, natural pose matching her recorded activity and location."""
+    import hashlib, random
+    activity = (state.get("activity") or "").lower()
+    location = (state.get("location") or "").lower()
+    seed_str = f"{state.get('started_at', '')}_{activity}_{location}"
+    seed = int(hashlib.md5(seed_str.encode()).hexdigest(), 16)
+    rng = random.Random(seed)
+
+    if any(k in activity for k in ("bed", "waking", "sleepy", "pajama", "morning")):
+        poses = [
+            "sitting upright in bed propped against pillows, sheets pooled around waist, one hand lazily pushing auburn hair from face, candid morning posture",
+            "sitting sideways on edge of mattress, leaning forward with elbows on knees, feet flat on the wooden floor, head tilted thoughtfully",
+            "cozy morning stretch, one arm extended overhead, reclining slightly back into the bed cushions with a relaxed candid expression",
+            "curled up on side among soft rumpled duvet, resting cheek against forearm, knees drawn up gently, looking towards camera with sleepy warmth"
+        ]
+    elif any(k in activity for k in ("coffee", "tea", "eating", "pasta", "dinner", "breakfast", "lunch")):
+        poses = [
+            "seated casually at wooden table, leaning forward with one elbow resting on surface, holding a ceramic mug in both hands, posture relaxed and natural",
+            "perched on a high kitchen stool, one leg hooked on footrest and other dangling, plate held near lap, torso turned slightly towards viewer",
+            "leaning back against kitchen counter with crossed ankles, one hand resting on marble edge, head tilted with a soft candid half-smile",
+            "sitting cross-legged on a chair, holding bowl with both hands, body angled in a natural comfortable three-quarter view"
+        ]
+    elif any(k in activity for k in ("paint", "drawing", "desk", "read", "book", "work")):
+        poses = [
+            "perched on the edge of wooden stool, leaning over work surface with focused posture, one hand holding brush/pen, hair tucked behind one ear",
+            "sitting on the floor with legs spread and knees bent, surrounded by sketchbook and supplies, leaning back onto one braced palm",
+            "seated deep in comfortable armchair, legs tucked completely under herself, book open on lap, looking up with a thoughtful glance",
+            "standing at high easel/table, weight shifted casually to left hip, stepping back slightly to inspect work with arms folded across chest"
+        ]
+    elif any(k in activity for k in ("walk", "outside", "river", "flea market", "outings", "errand")):
+        poses = [
+            "captured mid-stride walking along the path, jacket slightly unbuttoned, one hand tucked into denim pocket, turning head with a warm candid glance",
+            "leaning casually against a stone wall or bridge railing, shoulders dropped in relaxed posture, looking out towards the view",
+            "standing naturally on sidewalk, weight shifted to one leg, looking over one shoulder towards the camera with natural wind-blown hair",
+            "pausing mid-walk, hands resting lightly in coat pockets, posture upright yet effortless, natural street-photography candid framing"
+        ]
+    elif any(k in activity for k in ("sofa", "couch", "relax", "evening", "quiet", "lounging", "tidy")):
+        poses = [
+            "slouched comfortably deep in sofa cushions, one leg draped lazily over the armrest, head resting back against pillow",
+            "sitting sideways on couch with knees pulled up to chest, arms wrapped loosely around shins, looking candidly with quiet comfort",
+            "curled up in the corner of couch under a throw blanket, torso angled towards room, resting chin gently on propped hand",
+            "lounging stretched out on rug, propped up on one elbow, looking relaxed and grounded with effortless posture"
+        ]
+    else:
+        poses = [
+            "natural candid stance, leaning lightly against doorframe with arms loosely folded, weight on one foot, casual authentic posture",
+            "seated comfortably with legs crossed at ankles, hands resting gently on lap, slight head tilt with engaging soft expression",
+            "standing three-quarters to camera, hands tucked into front jeans pockets, shoulders relaxed and posture natural",
+            "sitting on low bench or step, elbows resting on thighs, leaning slightly forward with natural candid body language"
+        ]
+    return rng.choice(poses)
+
 def recorded_parts(c, record=None):
     """The recorded moment, split into the boxes a workflow actually has.
 
@@ -308,10 +362,14 @@ def recorded_parts(c, record=None):
         for key, value in visual.items()
         if value and key not in OWN_BOX
     ]
+    pose = visual.get("pose") or state.get("pose") or ""
+    if not pose:
+        pose = generate_contextual_pose(state)
     return {
         "identity": identity_block(c),
         "scene": ", ".join(p for p in action if p),
         "wardrobe": outfit,
+        "pose": pose,
         # A want that has lapsed is not part of this picture: a morning chore was
         # still going into the prompt in the evening.
         "feeling": feeling_text(held(c, scene)[0] if record is None else state),
@@ -419,6 +477,8 @@ def compile_prompt(c, extra="", use_reference=False):
     if parts.get("wardrobe"):
         pieces.append("She is " + wardrobe_clause(parts["wardrobe"]))
     pieces.append(scene)
+    if parts.get("pose"):
+        pieces.append(parts["pose"])
     if parts.get("feeling"):
         pieces.append(parts["feeling"])
     if parts.get("lighting"):
@@ -508,6 +568,7 @@ def main():
     gp.add_argument("--lighting")
     gp.add_argument("--camera")
     gp.add_argument("--feeling")
+    gp.add_argument("--pose", help="Detailed pose and body positioning decided by the companion")
     gp.add_argument(
         "--allow-nsfw",
         action="store_true",
@@ -542,7 +603,7 @@ def main():
 
         overrides = {
             k: getattr(a, k)
-            for k in ("scene", "wardrobe", "lighting", "camera", "feeling")
+            for k in ("scene", "wardrobe", "lighting", "camera", "feeling", "pose")
             if getattr(a, k)
         } or None
         intimate = bool(a.intimate)

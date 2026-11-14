@@ -19,7 +19,7 @@ import uuid
 import companion_config as cc
 from companion_platform import atomic_write, file_lock
 
-PARTS = ("quality", "identity", "wardrobe", "scene", "feeling", "lighting", "camera")
+PARTS = ("quality", "identity", "wardrobe", "scene", "pose", "feeling", "lighting", "camera")
 CATEGORIES = ("portrait", "anime", "realistic", "landscape", "other")
 CONFIG = "companion-images.json"
 
@@ -723,7 +723,9 @@ def compile(
     # capture of her bath came back in a tee.
     if recorded.get("wardrobe") or intimate:
         parts["wardrobe"] = recorded.get("wardrobe", "")
-    for key in ("scene", "wardrobe", "feeling", "lighting", "camera"):
+    if recorded.get("pose"):
+        parts["pose"] = recorded.get("pose", "")
+    for key in ("scene", "wardrobe", "pose", "feeling", "lighting", "camera"):
         if requested and key in ("feeling", "lighting", "camera"):
             continue
         if not parts.get(key):
@@ -745,6 +747,7 @@ def compile(
         "identity": "IDENTITY — KEEP CONSISTENT",
         "wardrobe": "WARDROBE — SHOW EXACTLY",
         "scene": "SCENE AND ACTION",
+        "pose": "POSE AND BODY POSITIONING",
         "feeling": "EMOTIONAL TONE",
         "lighting": "LIGHTING",
         "camera": "CAMERA AND FRAMING",

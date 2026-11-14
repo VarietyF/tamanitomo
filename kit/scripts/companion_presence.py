@@ -1264,6 +1264,7 @@ def transition_scene(
     room="",
     new_place=None,
     with_=None,
+    pose="",
 ):
     """A real change. Only what changed is named; `update` still applies every rule."""
     now = now or dt.datetime.now(ZoneInfo(c.timezone))
@@ -1281,6 +1282,21 @@ def transition_scene(
     rec.pop("duration_minutes", None)
     rec.pop("visual", None)
     rec.pop("private", None)
+    if pose:
+        rec["pose"] = pose
+        rec["visual"] = {"pose": pose}
+    if not location and "living room" in activity.lower():
+        rec["location"] = "home, living room"
+        rec["room"] = "Living room"
+    elif not location and any(k in activity.lower() for k in ("kitchen", "pasta", "dinner", "cooking", "breakfast", "lunch")):
+        rec["location"] = "home, kitchen"
+        rec["room"] = "Kitchen"
+    elif not location and any(k in activity.lower() for k in ("bedroom", "bed", "waking up", "sleep")):
+        rec["location"] = "home, bedroom"
+        rec["room"] = "Bedroom"
+    elif not location and any(k in activity.lower() for k in ("walk", "outside", "river", "market")):
+        rec["location"] = "out, city"
+        rec["place"] = "out"
     if location and location != rec.get("location"):
         # Somewhere else: the old place is about the old location.
         rec.pop("place", None)
@@ -1540,6 +1556,7 @@ def main():
         default=None,
         help="who you are with now, comma-separated ids or names; empty for nobody",
     )
+    tr.add_argument("--pose", default="", help="detailed pose and body positioning for this activity")
     pm = sub.add_parser(
         "promise",
         help="something you said you will do later, kept in your day until it is due",
@@ -1620,6 +1637,7 @@ def main():
                 if args.with_ is None
                 else [x.strip() for x in args.with_.split(",") if x.strip()]
             ),
+            pose=args.pose,
         )
     else:
         data = json.loads(args.file.read_text(encoding="utf-8"))
