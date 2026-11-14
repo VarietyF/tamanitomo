@@ -1284,7 +1284,15 @@ def transition_scene(
     rec.pop("private", None)
     if pose:
         rec["pose"] = pose
-        rec["visual"] = {"pose": pose}
+        rec["visual"] = {
+            "pose": pose,
+            "hands": "relaxed, natural hand placement",
+            "gaze": "calm candid glance",
+            "framing": "candid medium shot",
+            "props": "everyday personal items",
+            "expression": mood or "relaxed and authentic",
+            "lighting": "soft natural light",
+        }
     if not location and "living room" in activity.lower():
         rec["location"] = "home, living room"
         rec["room"] = "Living room"
