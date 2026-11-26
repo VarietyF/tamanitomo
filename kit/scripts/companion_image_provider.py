@@ -74,7 +74,10 @@ def review(payload):
     import io
     import os
     from pathlib import Path
-    import yaml
+    try:
+        import yaml
+    except ImportError:
+        import hermes_yaml as yaml
     from PIL import Image
     from agent.auxiliary_client import resolve_provider_client
 
