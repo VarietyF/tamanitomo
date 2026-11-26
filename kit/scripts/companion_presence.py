@@ -1293,16 +1293,23 @@ def transition_scene(
             "expression": mood or "relaxed and authentic",
             "lighting": "soft natural light",
         }
-    if not location and "living room" in activity.lower():
-        rec["location"] = "home, living room"
-        rec["room"] = "Living room"
-    elif not location and any(k in activity.lower() for k in ("kitchen", "pasta", "dinner", "cooking", "breakfast", "lunch")):
-        rec["location"] = "home, kitchen"
-        rec["room"] = "Kitchen"
-    elif not location and any(k in activity.lower() for k in ("bedroom", "bed", "waking up", "sleep")):
-        rec["location"] = "home, bedroom"
-        rec["room"] = "Bedroom"
-    elif not location and any(k in activity.lower() for k in ("walk", "outside", "river", "market")):
+    has_home = False
+    try:
+        import companion_places
+        has_home = bool(companion_places.home(c))
+    except Exception:
+        pass
+    if has_home:
+        if not location and "living room" in activity.lower():
+            rec["location"] = "home, living room"
+            rec["room"] = "Living room"
+        elif not location and any(k in activity.lower() for k in ("kitchen", "pasta", "dinner", "cooking", "breakfast", "lunch")):
+            rec["location"] = "home, kitchen"
+            rec["room"] = "Kitchen"
+        elif not location and any(k in activity.lower() for k in ("bedroom", "bed", "waking up", "sleep")):
+            rec["location"] = "home, bedroom"
+            rec["room"] = "Bedroom"
+    if not location and any(k in activity.lower() for k in ("walk", "outside", "river", "market")):
         rec["location"] = "out, city"
         rec["place"] = "out"
     if location and location != rec.get("location"):

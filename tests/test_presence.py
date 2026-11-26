@@ -480,11 +480,13 @@ class WardrobeIsReadFromTheRecordTests(unittest.TestCase):
         }
         scene, _ = portrait.scene_block(self.c, record)
         self.assertIn("drying off", scene)
-        self.assertIn("towelling her hair", scene)
+        parts = portrait.recorded_parts(self.c, record)
+        self.assertEqual("towelling her hair", parts["pose"])
         for elsewhere in (
             "wrapped in a bath towel",
             "close from the doorway",
             "warm bulb overhead",
+            "towelling her hair",
         ):
             self.assertNotIn(elsewhere, scene, elsewhere)
 

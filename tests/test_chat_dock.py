@@ -855,7 +855,7 @@ class WorkspaceAssetPerformanceTests(WorkspaceFixture):
         asset = Path(self.tmp.name) / "asset.js"
         asset.write_text("old")
         old_version = asset_version(asset)
-        asset.write_text("new")
+        import time; time.sleep(0.01); asset.write_text("new")
         assert asset_version(asset) != old_version
         # Private API responses are still uncached and uncompressed.
         api = self.get("/api/profiles")
