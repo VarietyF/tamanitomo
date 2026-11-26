@@ -18,7 +18,7 @@ Preview without rendering:
 Generate with the native renderer:
 `{{IMAGE_COMMAND}} generate --prompt "YOUR OWN COMPLETE SCENE"`
 
-Run directly with terminal. For longer prompts use `--request` with a JSON file
+Execute directly by calling the `terminal` tool function. NEVER print the shell command into chat with the human. When the command returns with `send: MEDIA:...`, include that `MEDIA:<path>` line on its own line in your reply. For longer prompts use `--request` with a JSON file
 containing `prompt` and optional `width`, `height`, `seed` and `preset`. Choose
 framing and dimensions deliberately. The helper automatically adds the entire
 permanent appearance unchanged; do not shorten or replace it. Other pictured

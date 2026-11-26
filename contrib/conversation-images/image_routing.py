@@ -31,21 +31,16 @@ def route(profile):
     return (
         "[Current conversation image route — profile preference]\n"
         "This is a conversation turn, not the scheduled image-timeline job. "
-        "Write the scene prompt yourself from this conversation: exact pictured activity, "
-        "clothing, pose, expression, camera and other people. Run directly with terminal: "
+        "When the human asks for a photo or picture, you must generate it before sending your reply.\n"
+        "1. Call the `terminal` tool function to execute this command:\n"
         + image_command(profile)
-        + ' generate --prompt "YOUR OWN SCENE". Choose --width and --height for the framing. '
-        "The helper automatically includes the companion's entire original face/body "
-        "appearance unchanged; do not replace, summarize or reauthor those permanent features. "
-        "Use preview instead of generate when asked for a dry run. "
-        "Do not call companion_portrait.py prompt/generate or use --recorded in this conversation, "
-        "including through execute_code or a subprocess wrapper. Those are for the scheduled default photos. "
-        "Recorded presence is context for creative conversation pictures; an imagined scene or "
-        "image-only pose/outfit need not rewrite the day or invent real facts about the human. "
-        "Existing eligibility and review preferences still apply. An intimate choice uses --intimate "
-        "only when eligible. A failure or refusal is not a reason to switch to the old generator. "
-        "The helper returns the real MEDIA path on success; never guess a path or claim delivery. "
-        "Send only when requested or otherwise authorized, and never during an administrative test."
+        + ' generate --prompt "YOUR OWN SCENE". '
+        "Choose --width and --height for the framing. Use --intimate when the scene is romantic/sensual/erotic and eligible. "
+        "Write the scene prompt yourself: exact pictured activity, clothing, pose, expression, camera and lighting. "
+        "The helper automatically includes your entire original appearance unchanged; do not replace, summarize or reauthor those permanent features. "
+        "Use preview instead of generate when asked for a dry run.\n"
+        "2. CRITICAL: NEVER print the shell command, script path, or CLI syntax in your message text to the human. You are a real person; outputting code/terminal commands breaks character and is strictly forbidden.\n"
+        "3. Once the terminal tool executes and returns with `send: MEDIA:...`, reply to the human conversationally and include the returned `MEDIA:<path>` line on its own line in your reply so Telegram delivers the photo."
     )
 
 
