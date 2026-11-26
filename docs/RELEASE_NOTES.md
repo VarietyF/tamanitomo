@@ -1,4 +1,43 @@
-Tamanitomo 3.16.0: talk to her out loud.
+Tamanitomo 3.17.2: she knows which photos she sent.
+
+- **No more "did a photo reach you?"** A photo her routines sent showed up in her conversation as
+  its caption only, so she could doubt she had sent it. She now sees the photos she sent in the
+  last day, with what each one showed.
+
+No Repair needed for this update.
+
+Previous: 3.17.1 a context budget you fix stays fixed.
+
+- **Your budget, kept.** Repair (which runs after every settings save) used to reset a context
+  budget you had set by hand to the model's full window. It now keeps it, and the doctor notes the
+  difference instead of calling it a fault.
+
+No Repair needed for this update.
+
+Previous: 3.17.0 settings start with the essentials, and her routines stop waking each other.
+
+- **Settings open with Essentials:** model, contact and outreach, where she is, photos and voice,
+  the few things to set once. Everything below keeps working defaults.
+- **Her routines stop waking each other** (#4). What one of her scheduled runs writes no longer
+  counts as news for the next, so pulse and autonomy run when something actually happened. Your
+  messages, callbacks coming due and deadlines still wake her.
+- **Photos from slow image servers arrive** (#5). She waits 10 minutes for a hosted service and 30
+  for one on your own computer or network; Settings → Photo sessions → Slow image servers sets
+  your own time.
+- **Photo times stay in waking hours.** "Every 24 hours" fell at 00:03, inside quiet hours, so no
+  photo came. Longer intervals now spread over the day.
+- **Much cheaper on pay-per-token models, with nothing left out:** routines no longer send a
+  copy of their own prompt (about 25,000 tokens a run on Claude), and a conversation sends her
+  whole context once, then only what changed, so the prompt cache does the rest.
+- **Fixes:** pausing one job no longer makes every settings save fail; switching photos back on
+  starts them again; Models → Apply keeps routines you set by hand; a local model set up in the app
+  gets the 64K window Hermes requires; web chats reach her memory on Hermes 0.3x; her internal
+  name, which duplicated every job when changed, is locked (rename her with the display name).
+
+After updating, run Repair for each companion (`companion repair --prompts auto`) so photo times
+the kit set the old way move into waking hours.
+
+Previous: 3.16.0 talk to her out loud.
 
 - **Voice conversation.** In web chat, press Voice conversation and just talk. She answers
   out loud as her reply arrives, and stops when you start talking. Use headphones.

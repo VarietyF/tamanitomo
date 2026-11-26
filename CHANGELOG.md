@@ -1,3 +1,97 @@
+## 3.17.2 — She knows which photos she sent (2026-11-26)
+
+- **Photos her routines send are in her conversations, not just their captions.** A photo sent
+  through the outbox (the photo timeline, outreach) reached the conversation as its caption
+  alone. Complimented on one, she asked whether a photo had arrived and said she would not take
+  credit for something she never sent. Her conversation context now lists the photos she sent
+  in the last day: when, the caption, and what each showed, from its capture record. Routines
+  already had their own "You already sent" list and are unchanged.
+
+## 3.17.1 — A budget you fix stays fixed (2026-11-26)
+
+- **A context budget fixed by choice stays fixed.** Repair, which also runs after every
+  settings save, resized the companion's context budget to whatever window the model reports,
+  even when the budget was set by hand. A budget chosen to keep a pay-per-token model
+  affordable came back at the model's full window on the next save. Repair now keeps a fixed
+  budget and says so; the doctor notes the difference instead of reporting a fault. An
+  automatic budget still follows the model.
+- The Hermes compatibility check accepts a conversation's first-turn snapshot in its new
+  base fence (3.17.0); scheduled runs still use the plain one. Verified against Hermes v0.23.4.
+
+## 3.17.0 — Settings start with the essentials (2026-11-26)
+
+- **Photos from slow image servers arrive** (#5). A photo made through Hermes's image
+  provider was cut off after a fixed 10 minutes, so a self-hosted GPU that had to wake
+  first lost the picture it had just finished. The wait is now automatic: 10 minutes for
+  a hosted service, 30 for an image server on this computer or your own network
+  (loopback, LAN and Tailscale addresses, single-word host names, `.local`, `.lan`,
+  `.home`, `.internal` and `.ts.net`). Settings → Photo sessions → Slow image servers
+  picks a fixed time instead, and `COMPANION_IMAGE_TIMEOUT` (seconds) overrides both for
+  containers. The provider is told the same value. ComfyUI presets keep their 10 minutes
+  unless a time is chosen. Hermes's own OpenAI image client still has a fixed 600-second
+  default until Hermes makes it configurable.
+- **Her routines stop waking each other** (#4). Hermes keeps a monitored job's mark from
+  before each run, so a scene transition or loop edit that pulse or autonomy made read as a
+  change on the next tick, and the two kept waking each other. On one install, nearly every
+  transition in a week was written during these runs, and a scene change was part of 43% of
+  pulse wakes and 69% of autonomy wakes. A write made inside a scheduled run is now recorded
+  as such (Hermes stamps `HERMES_CRON_SESSION` on a cron run's commands), and the awake
+  fingerprint watches only what the conversation or code changed: `unscheduled_since` for the
+  scene; for loops, each loop as its last outside change left it, plus the callbacks due
+  today. Callbacks coming due, routine anchors, deadlines, queued messages and the six-hour
+  bucket still wake the jobs. A routine moving on from an activity that ran long still wakes
+  the next run once.
+- **Apply on the Models page keeps the routines you set by hand.** It re-pinned every
+  routine to its tier, undoing a model or reasoning level chosen on the Scheduled jobs page.
+  Now a routine still on the kit's own pin follows the new plan, while one changed by hand
+  keeps its choice, and the result says which. Tick "Reset routines I set by hand" to put
+  them all on the plan as before. Anything on an account the plan no longer uses is still
+  moved.
+- **Settings open with Essentials**: model, contact & outreach, awareness (where she is), photo
+  sessions and voice. These are the few things a new person sets once; everything else keeps
+  its working defaults further down the list.
+- **Pausing one job no longer breaks settings saves.** The health check that ends every save
+  treated a job paused on the Scheduled jobs page as a fault, so quiet-hours, outreach and photo
+  saves reported failure. A job paused on purpose is now listed as such. A job running inside a
+  paused routine is still flagged.
+- **Switching photos back on starts them again.** Turning photos off paused the photo timeline
+  job, but turning them on in the app never resumed it; only the CLI did. Now the app does too,
+  on that switch only, so a photo job paused by hand stays paused through other saves.
+- **Photo times stay inside waking hours.** "Every 24 hours" ran at 00:03, inside quiet hours,
+  where the photo gate refuses, so no photos came; "every 12 hours" lost one of its two. Hourly
+  and longer intervals now spread over the waking day, and a day-long one lands mid-day. A
+  schedule the kit set the old way moves to the new one; one you chose yourself is left alone.
+- **Her internal name is locked in the companion editor**, now labelled "Internal name".
+  Changing it made the next repair install a second full set of scheduled jobs beside the old
+  ones. To rename her, change the display name.
+- **Local models get a window Hermes will run.** Hermes refuses any model with under 64K tokens
+  of context, and local setup wrote 8,192 (4,096 on a phone), so a local model set up in the app
+  stopped at the first message. Setup now gives each conversation 65,536 tokens, and Ollama is sent
+  the same as `num_ctx`. A server you run yourself is asked what it serves; under 64K, setup says
+  so instead of saving a profile that cannot start. The model switcher's window is shared by two
+  conversations, so it now offers only 128K (64K each) and 256K. A phone runs one conversation
+  at 64K.
+- **Routines stop sending a copy of their own prompt.** A routine's instructions contain words
+  like "remember" and "ever", which started a personal-history search with the whole job prompt
+  as the query, and the result block repeated the query first, so the copy filled the block's
+  budget before any result fit. On Claude that was about 25,000 tokens on every routine call.
+  Scheduled runs no longer search their own prompt (their pre-read carries the history they
+  need), and no search result repeats the question.
+- **Conversations stop re-sending her whole context with every message.** Hermes replays each
+  turn's injected context with the history, so a full snapshot on every message re-sent and
+  re-cached the same sections all day. Now a conversation's first message carries the whole
+  snapshot and each later one only what changed since; both stay in the history unchanged, so
+  the prompt cache keeps reading them instead of writing them again. When compression
+  summarises the snapshot away, the next message sends it whole again. Scheduled runs, one turn
+  each, are unchanged.
+- **Web chats reach her memory on Hermes 0.3x.** Hermes 0.3x files the workspace's own chat
+  (`hermes chat --oneshot`) under the source "oneshot", which the transcript reader and the
+  workspace's session list did not know, so those conversations were left out. They now count
+  as local conversations with you when they carry their own session id and this computer's
+  user; scheduled runs are never accepted.
+- Fix a meters test that began failing on its own at the end of October: it compared a
+  fixed September date against today's clock with a 60-day window.
+
 ## 3.16.0 — Talk to her out loud (2026-10-16)
 
 - **Voice conversation** in web chat: press it once and the microphone stays

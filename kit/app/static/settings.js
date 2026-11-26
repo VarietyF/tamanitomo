@@ -474,6 +474,18 @@ const settingsPanels=[
     </div>
   </div>
 
+  <details class="settings-advanced"><summary>Slow image servers</summary>
+  <div class="contact-settings" style="margin-top:12px">
+    <div class="contact-row">
+      <label class="contact-label" for="image-timeout">Wait for a photo</label>
+      <div class="contact-controls">
+        <select id="image-timeout">${options([[0,'Automatic ('+Math.round((s.image_timeout_auto||600)/60)+' minutes here)'],[300,'5 minutes'],[600,'10 minutes'],[1200,'20 minutes'],[1800,'30 minutes'],[3600,'1 hour'],[7200,'2 hours']].map(([v,t])=>[String(v),t]),String(s.image_timeout_seconds||0))}</select>
+      </div>
+    </div>
+    <p class="dim small" style="margin:6px 0 0">Automatic waits 10 minutes for a hosted image service, and 30 for an image server on this computer or your own network, where a GPU may have to wake up first. ComfyUI keeps 10 minutes unless you choose a time.</p>
+  </div>
+  </details>
+
   <details class="settings-advanced"><summary>Review &amp; blurring</summary>
   <div class="contact-settings" style="margin-top:12px">
     <div class="contact-row">
@@ -552,6 +564,7 @@ const settingsPanels=[
     const result=await saveSettings({
       image_timeline:host.querySelector('#tl').checked,
       image_interval_minutes:Number(host.querySelector('#image-interval').value),
+      image_timeout_seconds:Number(host.querySelector('#image-timeout').value),
       image_style:host.querySelector('#image-style').value,
       timeline_budget_gb:Number(host.querySelector('#gb').value)});
     const choice=host.querySelector('#media-review-mode').value;
@@ -1057,7 +1070,7 @@ function planStatusHTML(row){
       ${r.off.map(j=>`<li>${esc(j.name)}: ${esc(routeText(j)||'no model of its own')}, expected ${esc(routeText({provider:j.expected_provider,model:j.expected_model})||'the profile default')}</li>`).join('')}
       ${helpers.map(h=>`<li>Hermes ${esc(h.label)}: ${esc(h.base_url||accountName(h.provider))}${h.model?' · '+esc(h.model):''} — an account this plan does not use</li>`).join('')}
       ${own.map(j=>`<li>Your job “${esc(j.name)}”: ${esc(routeText(j))} — an account this plan does not use</li>`).join('')}
-    </ul><p class="dim small">Applying the plan moves all of these.</p></details>`:''}
+    </ul><p class="dim small">Applying keeps routines you set by hand (tick “Reset routines I set by hand” to move them too) and always moves anything on an account the plan does not use.</p></details>`:''}
   </li>`;
 }
 
@@ -1172,6 +1185,7 @@ async function renderModelPlan(host){
         </section>
         <div class="panel-footer plan-footer">
           ${companions.length>1?`<fieldset class="plan-who"><legend class="small">Apply to</legend>${companions.map(c=>`<label class="check"><input type="checkbox" data-plan-profile value="${esc(c.profile)}" ${chosen.has(c.profile)?'checked':''}> ${esc(c.name)}</label>`).join('')}</fieldset>`:''}
+          <label class="check small" title="Routines whose model you changed on the Scheduled jobs page keep it unless this is ticked"><input type="checkbox" data-plan-repin> Reset routines I set by hand</label>
           <button type="button" class="act" data-apply>Apply</button>
           <span class="dim small" data-plan-status role="status"></span>
         </div>
@@ -1218,7 +1232,8 @@ async function renderModelPlan(host){
         // The callback stops the workspace redrawing the whole page on completion,
         // which would throw away the result shown below.
         const done=await action('/models/plan',{chat:plan.chat,loops:plan.loops,reflection:plan.reflection,
-          fallbacks:plan.links.map(l=>l.bundle?{bundle:l.bundle}:{provider:l.provider,model:l.model,...(l.base_url?{base_url:l.base_url}:{})}),profiles},()=>{});
+          fallbacks:plan.links.map(l=>l.bundle?{bundle:l.bundle}:{provider:l.provider,model:l.model,...(l.base_url?{base_url:l.base_url}:{})}),profiles,
+          ...(host.querySelector('[data-plan-repin]')?.checked?{repin:'all'}:{})},()=>{});
         clearEditorDirty(editorScope(host));
         const r=done.result||{};
         await renderModelPlan(host);
@@ -1617,17 +1632,21 @@ function androidHostingTips(){
 
 /* Every section, in the order people look for them. A string is a section in
    settingsPanels; an object is a page elsewhere in the workspace that belongs
-   here too, so there is one list to scan instead of tiles plus groups. */
+   here too, so there is one list to scan instead of tiles plus groups.
+   Essentials come first: the few things a new person sets once (which model,
+   when she may write, where she is, photos, voice). Everything below them has
+   working defaults and is there for when someone wants it. */
 const SETTINGS_NAV=[
+  ['Essentials',['models','contact','awareness','photos','connect-voice']],
   ['Companion',[
     {route:'roster',title:'Companions',blurb:'Create, adopt, switch or archive a companion'},
     {route:'identity',title:'Identity',blurb:'Name, personality, appearance and story'},
-    'contact','rhythm','awareness','relationship']],
+    'rhythm','relationship']],
   ['AI models',[
-    'models','hermes-accounts','jobs',
+    'hermes-accounts','jobs',
     {route:'local-models',title:'Local models',blurb:'Run models on this machine with Ollama'}]],
   ['Images & voice',[
-    'connect-images','photos','connect-voice',
+    'connect-images',
     {route:'image-studio',title:'Image studio',blurb:'Workflows, presets and previews'},
     {route:'voice',title:'Voice studio',blurb:'Voices, cloning and previews'}]],
   ['App',['appearance','network','updates']],
