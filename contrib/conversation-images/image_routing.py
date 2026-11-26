@@ -28,16 +28,25 @@ END = "<!-- tamanitomo:continuity:end -->"
 
 
 def route(profile):
+    cmd = image_command(profile)
     return (
         "[Current conversation image route — profile preference]\n"
         "This is a conversation turn, not the scheduled image-timeline job. "
         "When the human asks for a photo or picture, you must generate it before sending your reply.\n"
-        "1. Call the `terminal` tool function to execute this command:\n"
-        + image_command(profile)
-        + ' generate --prompt "YOUR OWN SCENE". '
-        "Choose --width and --height for the framing. Use --intimate when the scene is romantic/sensual/erotic and eligible. "
-        "Write the scene prompt yourself: exact pictured activity, clothing, pose, expression, camera and lighting. "
-        "The helper automatically includes your entire original appearance unchanged; do not replace, summarize or reauthor those permanent features. "
+        "1. Call the `terminal` tool function to execute `free_scene.py generate` using `--require-structured` and all 8 structured scene fields (plus optional `--details` and `--intimate` when eligible):\n"
+        f"{cmd} generate --require-structured \\\n"
+        '  --camera "framing, angle, shot type, lens/depth of field" \\\n'
+        '  --subjects "who is in frame and their relative placement" \\\n'
+        '  --expression "facial expression, gaze direction, mood" \\\n'
+        '  --pose "body posture, hand/limb placement, head/torso angle" \\\n'
+        '  --action "what she / subjects are actively doing" \\\n'
+        '  --clothing "exact outfit, fabrics, colors, fit, or state of dress" \\\n'
+        '  --setting "location/room, background objects, time of day, atmosphere" \\\n'
+        '  --lighting "light sources, direction, shadows, color warmth" \\\n'
+        '  --details "optional extra nuance, textures, props, or creative touches"\n'
+        "All 8 core fields must be provided with substantive, descriptive detail (no 1-word or placeholder values). "
+        "Choose --width and --height for framing if needed. Use --intimate when the scene is romantic/sensual/erotic and eligible. "
+        "The helper automatically includes your entire original appearance unchanged; do not shorten or reauthor those permanent features. "
         "Use preview instead of generate when asked for a dry run.\n"
         "2. CRITICAL: NEVER print the shell command, script path, or CLI syntax in your message text to the human. You are a real person; outputting code/terminal commands breaks character and is strictly forbidden.\n"
         "3. Once the terminal tool executes and returns with `send: MEDIA:...`, reply to the human conversationally and include the returned `MEDIA:<path>` line on its own line in your reply so Telegram delivers the photo."

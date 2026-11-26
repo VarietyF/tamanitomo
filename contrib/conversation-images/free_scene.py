@@ -19,6 +19,136 @@ import companion_portrait as portrait
 from companion_platform import atomic_write
 
 
+STRUCTURED_FIELDS = (
+    "subjects",
+    "setting",
+    "clothing",
+    "action",
+    "pose",
+    "expression",
+    "camera",
+    "lighting",
+)
+OPTIONAL_FIELDS = ("details",)
+
+FIELD_DESCRIPTIONS = {
+    "subjects": "who is in frame and their relative placement",
+    "setting": "location/room, background objects, time of day, atmosphere",
+    "clothing": "exact outfit, fabrics, colors, fit, or state of dress",
+    "action": "what she / subjects are actively doing",
+    "pose": "body posture, hand/limb placement, head/torso angle",
+    "expression": "facial expression, gaze direction, mood",
+    "camera": "framing, shot type, angle, lens/POV/mirror/depth of field",
+    "lighting": "light sources, direction, shadows, color warmth",
+}
+
+PLACEHOLDER_VALUES = {
+    "none",
+    "n/a",
+    "na",
+    "null",
+    "nil",
+    "-",
+    "--",
+    "?",
+    "undefined",
+    "nothing",
+    "default",
+    "same",
+    "placeholder",
+    "tbd",
+    "unknown",
+    "empty",
+    "as usual",
+    "normal",
+}
+
+
+def validate_structured_fields(request):
+    """Validate that all 8 structured scene fields are present and substantive.
+
+    Returns a list of error strings if invalid, or empty list if valid.
+    """
+    errors = []
+    for field in STRUCTURED_FIELDS:
+        if field not in request:
+            errors.append(f"{field}: missing required field ({FIELD_DESCRIPTIONS[field]})")
+            continue
+        val = request[field]
+        if not isinstance(val, str) or not val.strip():
+            errors.append(f"{field}: cannot be empty ({FIELD_DESCRIPTIONS[field]})")
+            continue
+        stripped = val.strip()
+        lower = stripped.lower()
+        if lower in PLACEHOLDER_VALUES:
+            errors.append(
+                f"{field}: placeholder value '{stripped}' rejected ({FIELD_DESCRIPTIONS[field]})"
+            )
+            continue
+        words = stripped.split()
+        if len(words) < 2 or len(stripped) < 8:
+            errors.append(
+                f"{field}: too short or vague ('{stripped}' - must provide substantive detail: {FIELD_DESCRIPTIONS[field]})"
+            )
+    return errors
+
+
+def assemble_structured_prompt(c, request):
+    """Assemble 8 structured fields + optional details into a cohesive Flux/Moss prompt.
+
+    Order: Camera & Framing -> Subjects & Permanent Appearance -> Expression & Gaze
+           -> Pose & Action -> Clothing -> Setting & Atmosphere -> Lighting -> Additional Details.
+    Preserves Nell's full permanent SOUL.md appearance unchanged.
+    """
+    identity = portrait.identity_block(c)
+    if not identity.strip():
+        raise ValueError(
+            "The full appearance description is unavailable; no image was submitted"
+        )
+
+    camera = request["camera"].strip().rstrip(".") + "."
+    subjects = request["subjects"].strip().rstrip(".") + "."
+    expression = request["expression"].strip().rstrip(".") + "."
+    pose = request["pose"].strip().rstrip(".") + "."
+    action = request["action"].strip().rstrip(".") + "."
+    clothing = request["clothing"].strip().rstrip(".") + "."
+    setting = request["setting"].strip().rstrip(".") + "."
+    lighting = request["lighting"].strip().rstrip(".") + "."
+    details = request.get("details")
+    if isinstance(details, str) and details.strip():
+        details = details.strip().rstrip(".") + "."
+    else:
+        details = ""
+
+    subjects_with_identity = (
+        f"{subjects}\n\n"
+        f"The following permanent appearance describes {c.agent} only, not other people in the image:\n"
+        f"{identity}\n\n"
+        f"Keep {c.agent}'s permanent face, body, hair and physical features exactly as described. "
+        "If scene wording conflicts with those permanent features, the permanent description wins. "
+        "The scene determines this picture's clothing, pose, activity, temporary expression, gaze "
+        "and camera, overriding only customary presentation details in the description."
+    )
+
+    parts = [
+        camera,
+        subjects_with_identity,
+        expression,
+        f"{pose} {action}",
+        clothing,
+        setting,
+        lighting,
+    ]
+    if details:
+        parts.append(details)
+
+    submitted = "\n\n".join(parts)
+    authored = f"{camera} {subjects} {expression} {pose} {action} {clothing} {setting} {lighting}"
+    if details:
+        authored += f" {details}"
+    return identity, submitted, authored
+
+
 def with_permanent_identity(c, authored_prompt):
     identity = portrait.identity_block(c)
     if not identity.strip():
@@ -47,18 +177,52 @@ def with_permanent_identity(c, authored_prompt):
 def prepare(c, request):
     if not isinstance(request, dict):
         raise ValueError("The request must be a JSON object")
-    permitted = {"prompt", "preset", "intimate", "seed", "width", "height", "purpose"}
+    permitted = {
+        "prompt",
+        "preset",
+        "intimate",
+        "seed",
+        "width",
+        "height",
+        "purpose",
+        "require_structured",
+        "subjects",
+        "setting",
+        "clothing",
+        "action",
+        "pose",
+        "expression",
+        "camera",
+        "lighting",
+        "details",
+    }
     unknown = set(request) - permitted
     if unknown:
         raise ValueError("Unknown request fields: " + ", ".join(sorted(unknown)))
-    prompt = request.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        raise ValueError("Write the complete image prompt in prompt")
-    # This is the normalization performed by the native comma-join compiler.
-    prompt = prompt.strip().rstrip(",")
-    if not prompt or len(prompt) > 24000:
-        raise ValueError("The image prompt must contain 1 to 24000 characters")
-    identity, submitted_prompt = with_permanent_identity(c, prompt)
+
+    is_structured = request.get("require_structured", False) or any(
+        k in request for k in STRUCTURED_FIELDS
+    )
+    if is_structured:
+        errors = validate_structured_fields(request)
+        if errors:
+            raise ValueError(
+                "Structured scene validation failed:\n"
+                + "\n".join(f"- {e}" for e in errors)
+                + "\nAll 8 core fields (subjects, setting, clothing, action, pose, expression, camera, lighting) must be substantively detailed."
+            )
+        identity, submitted_prompt, authored_prompt = assemble_structured_prompt(c, request)
+        prompt = authored_prompt
+    else:
+        prompt = request.get("prompt")
+        if not isinstance(prompt, str) or not prompt.strip():
+            raise ValueError("Write the complete image prompt in prompt or use structured scene fields")
+        # This is the normalization performed by the native comma-join compiler.
+        prompt = prompt.strip().rstrip(",")
+        if not prompt or len(prompt) > 24000:
+            raise ValueError("The image prompt must contain 1 to 24000 characters")
+        identity, submitted_prompt = with_permanent_identity(c, prompt)
+
     intimate = request.get("intimate", False)
     if not isinstance(intimate, bool):
         raise ValueError("intimate must be true or false")
@@ -160,6 +324,12 @@ def run(c, request, render=False):
         "identity_preserved": True,
         "identity_characters": len(portrait.identity_block(c)),
     }
+    if any(k in request for k in STRUCTURED_FIELDS):
+        provenance["structured_fields"] = {
+            k: request[k] for k in STRUCTURED_FIELDS if k in request
+        }
+        if request.get("details"):
+            provenance["structured_fields"]["details"] = request["details"]
     metadata_path = path.with_suffix(".json")
     original = json.loads(metadata_path.read_text())
     atomic_write(metadata_path, json.dumps({**original, **provenance}, indent=2))
@@ -208,7 +378,14 @@ def context(c, capture_id=None):
         },
         "image_style": c.image_style,
         "adult_images_ready": media.adult_ready(c)[0],
-        "note": "Author the scene, clothing, activity, pose and camera freely. The full original appearance is added automatically and must not be shortened or changed. Do not invent real facts about the human.",
+        "structured_scene_fields": list(STRUCTURED_FIELDS),
+        "optional_fields": list(OPTIONAL_FIELDS),
+        "note": (
+            "Author the scene using the structured builder flags: --require-structured "
+            "--camera, --subjects, --expression, --pose, --action, --clothing, --setting, --lighting, "
+            "and optional --details. The full original appearance is added automatically and must not "
+            "be shortened or changed. Do not invent real facts about the human."
+        ),
     }
 
 
@@ -216,15 +393,29 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--home", type=Path, default=None)
     parser.add_argument("command", choices=["context", "preview", "generate"])
-    source = parser.add_mutually_exclusive_group()
-    source.add_argument(
+    parser.add_argument(
         "--request",
         type=Path,
-        help="JSON file containing a complete prompt and optional settings",
+        help="JSON file containing a complete prompt or structured fields and optional settings",
     )
-    source.add_argument(
-        "--prompt", help="Complete authored prompt; use a JSON file for longer text"
+    parser.add_argument(
+        "--prompt", help="Complete authored prompt; legacy mode or JSON file for longer text"
     )
+    parser.add_argument(
+        "--require-structured",
+        action="store_true",
+        help="Require all 8 structured scene fields and validate them",
+    )
+    parser.add_argument("--subjects", help="Who is in frame and their relative placement")
+    parser.add_argument("--setting", help="Location/room, background objects, time of day, atmosphere")
+    parser.add_argument("--clothing", help="Exact outfit, fabrics, colors, fit, or state of dress")
+    parser.add_argument("--action", help="What she / subjects are actively doing")
+    parser.add_argument("--pose", help="Body posture, hand/limb placement, head/torso angle")
+    parser.add_argument("--expression", help="Facial expression, gaze direction, mood")
+    parser.add_argument("--camera", help="Framing, shot type, angle, lens/POV/mirror/depth of field")
+    parser.add_argument("--lighting", help="Light sources, direction, shadows, color warmth")
+    parser.add_argument("--details", help="Optional extra nuance, props, textures, hair state, or creative touches")
+
     parser.add_argument(
         "--intimate",
         action="store_true",
@@ -251,10 +442,22 @@ def main():
             if args.request.stat().st_size > 150000:
                 raise ValueError("The request file is too large")
             request = json.loads(args.request.read_text())
-        elif args.prompt:
-            request = {"prompt": args.prompt}
         else:
-            raise ValueError("Provide --prompt or --request")
+            request = {}
+            if args.prompt:
+                request["prompt"] = args.prompt
+
+        if args.require_structured:
+            request["require_structured"] = True
+
+        for field in STRUCTURED_FIELDS + OPTIONAL_FIELDS:
+            val = getattr(args, field, None)
+            if val is not None:
+                request[field] = val
+
+        if not request.get("prompt") and not any(k in request for k in STRUCTURED_FIELDS) and not args.request:
+            raise ValueError("Provide structured scene fields, --prompt, or --request")
+
         if args.intimate:
             if not isinstance(request, dict):
                 raise ValueError("The request must be a JSON object")

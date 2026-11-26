@@ -276,3 +276,93 @@ def test_recorded_explicit_pose_keeps_priority(profile):
         patch.object(presence, "held", return_value=({}, [])),
     ):
         assert RECORDED_PARTS(profile, record)["pose"] == "both hands lifted"
+
+
+VALID_STRUCTURED_REQUEST = {
+    "camera": "Eye-level medium close-up shot with 50mm lens and soft bokeh",
+    "subjects": "Nova sitting alone, centered in the frame",
+    "expression": "Warm engaging smile with gentle gaze directly at the camera",
+    "pose": "Resting arms on a wooden table, leaning forward slightly",
+    "action": "Enjoying a quiet morning coffee break indoors",
+    "clothing": "Soft cream-colored ribbed knit turtleneck sweater",
+    "setting": "Sunlit cafe interior with plants and rustic wooden tables",
+    "lighting": "Natural morning sunlight streaming through a large window",
+}
+
+
+def test_structured_scene_prompt_assembly_without_details(profile):
+    *_, compiled = scene.prepare(profile, dict(VALID_STRUCTURED_REQUEST))
+    prompt = compiled["prompt"]
+    assert prompt.count(IDENTITY) == 1
+    assert "Nova only, not other people" in prompt
+    assert prompt.index(VALID_STRUCTURED_REQUEST["camera"]) < prompt.index(VALID_STRUCTURED_REQUEST["subjects"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["subjects"]) < prompt.index(IDENTITY)
+    assert prompt.index(IDENTITY) < prompt.index(VALID_STRUCTURED_REQUEST["expression"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["expression"]) < prompt.index(VALID_STRUCTURED_REQUEST["pose"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["pose"]) < prompt.index(VALID_STRUCTURED_REQUEST["clothing"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["clothing"]) < prompt.index(VALID_STRUCTURED_REQUEST["setting"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["setting"]) < prompt.index(VALID_STRUCTURED_REQUEST["lighting"])
+
+
+def test_structured_scene_prompt_assembly_with_details(profile):
+    req = dict(VALID_STRUCTURED_REQUEST)
+    req["details"] = "Light steam rising from a ceramic mug, hair softly tousled"
+    *_, compiled = scene.prepare(profile, req)
+    prompt = compiled["prompt"]
+    assert prompt.endswith("Light steam rising from a ceramic mug, hair softly tousled.")
+    assert prompt.index(VALID_STRUCTURED_REQUEST["lighting"]) < prompt.index(req["details"])
+
+
+@pytest.mark.parametrize(
+    "bad_request,expected_error",
+    [
+        (
+            {k: v for k, v in VALID_STRUCTURED_REQUEST.items() if k != "lighting"},
+            "lighting: missing required field",
+        ),
+        (
+            {**VALID_STRUCTURED_REQUEST, "expression": "none"},
+            r"expression: placeholder value .none. rejected",
+        ),
+        (
+            {**VALID_STRUCTURED_REQUEST, "clothing": "n/a"},
+            r"clothing: placeholder value .n/a. rejected",
+        ),
+        (
+            {**VALID_STRUCTURED_REQUEST, "action": "smiling"},
+            r"action: too short or vague .'smiling'",
+        ),
+        (
+            {**VALID_STRUCTURED_REQUEST, "setting": "room"},
+            r"setting: too short or vague .'room'",
+        ),
+    ],
+)
+def test_structured_validation_rejects_missing_or_thin_fields(profile, bad_request, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        scene.prepare(profile, bad_request)
+
+
+def test_require_structured_flag_enforces_structured_mode(profile):
+    with pytest.raises(ValueError, match="Structured scene validation failed:"):
+        scene.prepare(profile, {"prompt": "Valid legacy prompt", "require_structured": True})
+
+
+def test_permanent_appearance_preserved_in_structured_mode(profile):
+    result = scene.run(profile, dict(VALID_STRUCTURED_REQUEST))
+    assert result["identity_preserved"] is True
+    assert result["identity_characters"] == len(IDENTITY)
+    assert IDENTITY in result["prompt"]
+
+
+def test_structured_intimate_request_keeps_native_gate(profile):
+    with patch.object(media, "intimacy_gate", return_value=(False, ["not eligible"])):
+        with pytest.raises(ValueError, match="not eligible"):
+            scene.prepare(profile, {**VALID_STRUCTURED_REQUEST, "intimate": True})
+
+
+def test_legacy_prompt_backwards_compatibility(profile):
+    legacy_prompt = "A simple evening walk through autumn trees"
+    *_, compiled = scene.prepare(profile, {"prompt": legacy_prompt})
+    assert compiled["prompt"].startswith(legacy_prompt)
+    assert compiled["prompt"].count(IDENTITY) == 1

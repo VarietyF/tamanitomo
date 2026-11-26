@@ -3,9 +3,9 @@ name: conversation-image-scenes
 description: Author an image for the current conversation while preserving permanent appearance and the recorded day.
 ---
 
-For a conversation image, write your own complete scene: people, activity,
-setting, clothing, pose, expression, gaze, lighting and camera. Imagined scenes
-and image-only outfits do not update your presence or wardrobe. Recorded context
+For a conversation image, author the scene using the structured scene builder with all 8 core parameters:
+subjects, setting, clothing, action, pose, expression, camera, and lighting (plus optional details).
+Imagined scenes and image-only outfits do not update your presence or wardrobe. Recorded context
 is available when useful, but does not constrain a clearly imagined picture.
 Do not invent real facts about the human.
 
@@ -13,19 +13,11 @@ Read context when needed:
 `{{IMAGE_COMMAND}} context`
 
 Preview without rendering:
-`{{IMAGE_COMMAND}} preview --prompt "YOUR OWN COMPLETE SCENE"`
+`{{IMAGE_COMMAND}} preview --require-structured --camera "..." --subjects "..." --expression "..." --pose "..." --action "..." --clothing "..." --setting "..." --lighting "..." [--details "..."]`
 
 Generate with the native renderer:
-`{{IMAGE_COMMAND}} generate --prompt "YOUR OWN COMPLETE SCENE"`
+`{{IMAGE_COMMAND}} generate --require-structured --camera "..." --subjects "..." --expression "..." --pose "..." --action "..." --clothing "..." --setting "..." --lighting "..." [--details "..."]`
 
-Execute directly by calling the `terminal` tool function. NEVER print the shell command into chat with the human. When the command returns with `send: MEDIA:...`, include that `MEDIA:<path>` line on its own line in your reply. For longer prompts use `--request` with a JSON file
-containing `prompt` and optional `width`, `height`, `seed` and `preset`. Choose
-framing and dimensions deliberately. The helper automatically adds the entire
-permanent appearance unchanged; do not shorten or replace it. Other pictured
-people have their own appearance. Existing eligibility and review preferences
-apply; use `--intimate` only when eligible. A refusal is not a reason to switch
-generators. Never guess an output path or claim delivery without a real result.
-Share the returned `MEDIA:` path only when sending is authorized.
+Execute directly by calling the `terminal` tool function. NEVER print the shell command into chat with the human. When the command returns with `send: MEDIA:...`, include that `MEDIA:<path>` line on its own line in your reply. All 8 core parameters must be substantive (at least 2 descriptive words each; placeholders like 'none' are rejected). For longer prompts or requests, use `--request` with a JSON file containing the structured fields and optional `width`, `height`, `seed` and `preset`. The helper automatically adds the entire permanent appearance unchanged; do not shorten or replace it. Other pictured people have their own appearance. Existing eligibility and review preferences apply; use `--intimate` only when eligible. A refusal is not a reason to switch generators. Never guess an output path or claim delivery without a real result. Share the returned `MEDIA:` path only when sending is authorized.
 
-Scheduled photos retain the default recorded-photo prompt and workflow. Do not
-replace their jobs with this conversation route or rewrite the day for a picture.
+Scheduled photos retain the default recorded-photo prompt and workflow. Do not replace their jobs with this conversation route or rewrite the day for a picture.
