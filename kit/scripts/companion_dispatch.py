@@ -146,6 +146,26 @@ def verdict(c, entry, now):
                 "action": "withhold",
                 "reason": f"unprompted {entry.get('content')} waits until you are Friends; until then only when asked",
             }
+    # Active-chat hold: pause unprompted scheduled/timeline media while human is actively chatting
+    is_unprompted_timeline = (
+        entry.get("source") == "timeline"
+        or "timeline" in str(entry.get("reason", "")).lower()
+        or (entry.get("kind") == "image" and entry.get("priority") not in ("high", "urgent"))
+    )
+    if is_unprompted_timeline and entry.get("priority") not in ("high", "urgent"):
+        try:
+            import companion_thread
+
+            thread_state = companion_thread.read(c, now=now)
+            hours_since_human = thread_state.get("hours_since_human")
+            if hours_since_human is not None and hours_since_human < 0.5:
+                return {
+                    "action": "hold",
+                    "reason": f"active conversation in progress ({int(hours_since_human * 60)}m ago); photo held until conversation concludes",
+                    "urgent": False,
+                }
+        except Exception:
+            pass
     asleep = outreach.in_quiet_hours(c, now)
     sleeping, up = wearable_says(c, now)
     # Up for the day by the wearable lifts quiet hours the way writing to her does (only in the night's last hours).

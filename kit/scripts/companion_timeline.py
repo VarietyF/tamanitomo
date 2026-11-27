@@ -339,6 +339,22 @@ def _refusal(c, now):
     is never started."""
     if not c.image_timeline:
         return {"ready": False, "reason": "Image timeline is off"}, None, None
+    try:
+        import companion_thread
+
+        thread_state = companion_thread.read(c, now=now)
+        since_human = thread_state.get("hours_since_human")
+        if since_human is not None and since_human < 0.5:
+            return (
+                {
+                    "ready": False,
+                    "reason": f"Active conversation in progress with human ({int(since_human * 60)}m ago); timeline photo skipped",
+                },
+                None,
+                None,
+            )
+    except Exception:
+        pass
     # Nobody photographs themselves asleep, and a night of it is thirty near-identical
     # dark rooms in the gallery. The sleep window is declared at wind-down precisely so
     # this is a fact on disk rather than a judgement call the model makes at 03:00.
@@ -1062,6 +1078,7 @@ def share(c, body, ident=None, reason="", priority="normal", ttl_hours=6, now=No
         "kind": "image",
         "body": body,
         "media_path": str(target),
+        "source": "timeline",
         "reason": reason or f"sharing timeline photo {ident}",
         "priority": priority,
         "ttl_hours": ttl_hours,
@@ -1081,6 +1098,15 @@ def fingerprint(c, now=None):
     now = now or now_utc()
     if not c.image_timeline:
         return "timeline off\n"
+    try:
+        import companion_thread
+
+        thread_state = companion_thread.read(c, now=now)
+        since_human = thread_state.get("hours_since_human")
+        if since_human is not None and since_human < 0.5:
+            return f"active conversation ({int(since_human * 60)}m)\n"
+    except Exception:
+        pass
     import companion_sleep
 
     night = companion_sleep.status(c, now)
