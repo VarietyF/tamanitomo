@@ -1148,8 +1148,12 @@ def build(c, payload=None, now=None, maintenance_notice="", seen=None, sent=None
             parts.append((4, f"[What {c.human} is watching]\n" + watching))
     if b["ambient"]:
         amb = []
+        def _amb_order(path):
+            pref = ["homeassistant", "weather", "daylight", "dates", "care", "durations", "together", "holidays"]
+            return (0 if path.stem in pref else 1, pref.index(path.stem) if path.stem in pref else path.stem)
+
         for p in (
-            sorted((c.soul_dir / "ambient").glob("*.md"))
+            sorted((c.soul_dir / "ambient").glob("*.md"), key=_amb_order)
             if (c.soul_dir / "ambient").is_dir()
             else []
         ):
@@ -1160,7 +1164,7 @@ def build(c, payload=None, now=None, maintenance_notice="", seen=None, sent=None
                 amb.append(f"{p.stem}: {t}")
         if amb:
             parts.append(
-                (7, "[Ambient context]\n" + clip("\n".join(amb), b["ambient"]))
+                (7, "[Ambient context]\n" + clip("\n".join(amb), max(350, b["ambient"])))
             )
     elif (c.soul_dir / "ambient").is_dir() and any(
         (c.soul_dir / "ambient").glob("*.md")
