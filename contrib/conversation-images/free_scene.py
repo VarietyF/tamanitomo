@@ -3,11 +3,29 @@
 
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
+
+# If executed under a foreign python (like Hermes python3.14 runner), re-exec using project venv
+_VENV_PY = Path(__file__).resolve().parents[2] / ".venv/bin/python"
+if _VENV_PY.is_file() and sys.executable != str(_VENV_PY):
+    _clean_env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "VIRTUAL_ENV")}
+    _clean_env["PATH"] = f"{_VENV_PY.parent}:{_clean_env.get('PATH', '')}"
+    os.execve(str(_VENV_PY), [str(_VENV_PY)] + sys.argv, _clean_env)
+
+# Scrub foreign PYTHONPATH/VIRTUAL_ENV and foreign site-packages from sys.path
+os.environ.pop("PYTHONPATH", None)
+os.environ.pop("VIRTUAL_ENV", None)
+_current_py = f"python{sys.version_info.major}.{sys.version_info.minor}"
+sys.path = [
+    p for p in sys.path
+    if not ("site-packages" in p and _current_py not in p)
+]
+
 import argparse
 import copy
 import json
-from pathlib import Path
-import sys
 
 KIT = Path(__file__).resolve().parents[2] / "kit/scripts"
 sys.path.insert(0, str(KIT))

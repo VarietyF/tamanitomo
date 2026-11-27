@@ -1432,6 +1432,13 @@ def _generate(
             raise ValueError("Image API did not return an image")
     if len(raw) > 40_000_000:
         raise ValueError("Generated image exceeds 40 MB")
+    os.environ.pop("PYTHONPATH", None)
+    os.environ.pop("VIRTUAL_ENV", None)
+    _current_py = f"python{sys.version_info.major}.{sys.version_info.minor}"
+    sys.path = [
+        p for p in sys.path
+        if not ("site-packages" in p and _current_py not in p)
+    ]
     import io
     from PIL import Image
 

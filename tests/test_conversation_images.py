@@ -366,3 +366,21 @@ def test_legacy_prompt_backwards_compatibility(profile):
     *_, compiled = scene.prepare(profile, {"prompt": legacy_prompt})
     assert compiled["prompt"].startswith(legacy_prompt)
     assert compiled["prompt"].count(IDENTITY) == 1
+
+
+def test_pythonpath_isolation_in_free_scene(profile):
+    import subprocess
+    cmd = [
+        str(ROOT / ".venv/bin/python"),
+        str(ROOT / "contrib/conversation-images/free_scene.py"),
+        "--home",
+        str(profile.home),
+        "context",
+    ]
+    env = dict(ROOT.stat() and {})  # clean dict
+    import os
+    env = os.environ.copy()
+    env["PYTHONPATH"] = "/home/martin/.hermes/installs/fe157ff7eb823b1d/environments/4d1386e8ee4842fcbfb9e1d38193ed85/venv/lib/python3.14/site-packages"
+    res = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    assert res.returncode == 0, f"Failed with: {res.stderr}"
+    assert "identity_reference" in res.stdout
