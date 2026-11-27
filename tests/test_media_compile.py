@@ -190,6 +190,42 @@ class UndressedPhotoTests(unittest.TestCase):
         call = self.run_generate(now=None)
         self.assertFalse(call.kwargs["intimate"])
 
+    def test_intimate_render_activates_insertion_lora_conditionally(self):
+        loras = [
+            {"name": "MysticXXX-Moss-V1.safetensors", "strength": 1.0, "enabled": True, "triggers": ""},
+            {"name": "PornMaster_Moss_Insertion_V1.safetensors", "strength": 0.0, "enabled": False, "triggers": ""}
+        ]
+        draft = {
+            "id": "draft",
+            "provider": "comfyui",
+            "endpoint": "http://127.0.0.1:8188",
+            "parts": {"quality": "best quality"},
+            "mappings": {"negative": ["1", "text"]},
+            "workflow": {
+                "1": {"class_type": "CLIPTextEncode", "inputs": {"text": ""}},
+                "11": {
+                    "class_type": "AUSBOSS_NODES_LoraLoader",
+                    "inputs": {"loras": json.dumps(loras), "on_missing": "skip"}
+                }
+            }
+        }
+        # Non-intimate compilation: LoRA remains 0.0 / disabled
+        res_normal = media.compile(self.c, draft=draft, intimate=False)
+        wf_normal = res_normal["workflow"]
+        normal_loras = json.loads(wf_normal["11"]["inputs"]["loras"])
+        insertion_normal = next(l for l in normal_loras if "insertion" in l["name"].lower())
+        self.assertEqual(insertion_normal["strength"], 0.0)
+        self.assertFalse(insertion_normal["enabled"])
+
+        # Intimate compilation: LoRA is conditionally activated at 0.95
+        with patch.object(media, "intimacy_gate", return_value=(True, [])):
+            res_intimate = media.compile(self.c, draft=draft, intimate=True)
+            wf_intimate = res_intimate["workflow"]
+            intimate_loras = json.loads(wf_intimate["11"]["inputs"]["loras"])
+            insertion_intimate = next(l for l in intimate_loras if "insertion" in l["name"].lower())
+            self.assertEqual(insertion_intimate["strength"], 0.95)
+            self.assertTrue(insertion_intimate["enabled"])
+
 
 if __name__ == "__main__":
     unittest.main()

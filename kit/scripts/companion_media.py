@@ -902,6 +902,22 @@ def compile(
     for key, (node, field) in p.get("mappings", {}).items():
         if key in values:
             workflow[str(node)]["inputs"][field] = values[key]
+    if p.get("provider") == "comfyui":
+        for node in workflow.values():
+            if node.get("class_type") == "AUSBOSS_NODES_LoraLoader":
+                raw_loras = node.get("inputs", {}).get("loras", "[]")
+                try:
+                    loras_list = json.loads(raw_loras) if isinstance(raw_loras, str) else raw_loras
+                    changed = False
+                    for item in loras_list:
+                        if "insertion" in item.get("name", "").lower() or "pornmaster" in item.get("name", "").lower():
+                            item["strength"] = 0.95 if intimate else 0.0
+                            item["enabled"] = bool(intimate)
+                            changed = True
+                    if changed:
+                        node["inputs"]["loras"] = json.dumps(loras_list)
+                except Exception:
+                    pass
     reference = portrait.portrait_path(c)
     if p.get("requires_reference") and not reference.is_file():
         raise ValueError(
