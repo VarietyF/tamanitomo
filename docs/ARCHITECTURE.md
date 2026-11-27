@@ -102,16 +102,59 @@ reflection is a separate inference job. Profile type and optional settings
 control which jobs are installed.
 
 A conversation that starts fresh each morning starts empty, and every channel
-(Telegram, the app, a terminal) is its own conversation. So each turn's
-continuity block also quotes the newest owner-verified messages from the
-human's other conversations: another channel, or the same one before the
-morning's fresh start. Selection is deterministic and uses no model
-(`companion_context.cross_channel_handoff` over the read-only
-`companion_transcript` reader): the last 36 hours, at most twelve messages,
+(Telegram, the app, a terminal, an app the human talks through on the Hermes
+API) is its own conversation. To the human it is one conversation that moves
+between places, so each turn's continuity block also quotes the newest
+owner-verified messages from the human's other conversations: another channel,
+or the same one before the morning's fresh start. Selection is deterministic and
+uses no model (`companion_context.cross_channel_handoff` over the read-only
+`companion_transcript` reader): the last 36 hours, at most forty messages,
 within a reserve sized from the window (`companion_config.conversation_reserve`,
-up to 4,000 characters) that sits on top of the other sections rather than
-displacing them. Settings → Awareness → *Pick up where you left off* switches
-it off (`conversation_handoff`).
+2% of it, up to 16,000 characters) that sits on top of the other sections rather
+than displacing them. Settings → Awareness → *Pick up where you left off*
+switches it off (`conversation_handoff`).
+
+Any client holding the Hermes API key can open an API conversation (a script, a
+shared front end), so none counts as the human's by default. companion.json
+`owner_api_conversations` names the ones that are, mapped to what the companion
+calls the place: `{"game-chat": "the game"}`. A name is the one a client gives
+`conversation` on `/v1/responses`, found read-only in Hermes's
+`response_store.db` (with the transcripts Hermes compressed it from), or a key
+the client declares with `X-Hermes-Session-Key`. Those conversations are then
+read like Telegram and the app: quoted into the others, the others quoted into
+them, shown in the app's chat feed, and kept as the human's own words.
+
+A device or another app can also keep its own conversation going through the
+app's chat (a voice front end, a car, a kitchen radio). Hermes files those as
+local sessions like the app's own window, so the client names its place with
+`place` on `POST /api/chat`. The app records it for that conversation
+(`.tamanitomo-session-places.json` beside the session list, the newest hundred
+kept) before the turn runs: the companion's own turn there says where it is,
+her other conversations quote those messages under that name, the feed shows
+it, and the app's own window does not take that conversation over.
+
+The same conversations count toward her sense of when the human last wrote.
+`companion_thread` (the last message each way, the gap, the recent tail, the
+days the human wrote) reads messaging and terminal sessions plus the
+conversations `companion_transcript` knows as the human's elsewhere: the app's
+own chats and the named API conversations, with the transcripts they continue.
+That clock feeds her missing the human, her choice to reach out on another
+channel, the recent conversation her routines read, and the rhythm she learns.
+
+While the human plays something on their own media server, the app follows its
+dialogue line by line (`companion_watchalong`, a thread per companion in the app's
+process): subtitles the server hands out, the film's own embedded track read at the
+film's pace, or its sound heard by a speech model, matched to a playhead carried
+forward between the server's reports. The last minute of dialogue, never anything past
+the playhead, becomes her "On screen now" section, and at lines that land she may say
+something on her own through the watch, a wearable, a chat or the TV (Jellyfin).
+
+A conversation's first turn carries the whole continuity snapshot and later
+turns only the sections whose digest it has not seen. Some sections carry their
+age ("confirmed 36 minutes ago", "4.32h"), which changes every minute while the
+section says the same, so the digest reads an age by steps (10, 30 and 90
+minutes; 3, 6, 12, 24 and 48 hours; then days): the section comes back when its
+age reaches the next step or anything else in it changes.
 
 These jobs need no language-model completion. They can maintain records and
 enforce policy during provider outages without paying for an agent turn that

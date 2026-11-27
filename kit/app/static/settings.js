@@ -352,7 +352,7 @@ const settingsPanels=[
   </div>
   <div class="sensor-grid">
     ${Object.entries(s.available_sensors).map(([k,blurb])=>
-      toggleRow('sensor-'+k,({dates:'Important dates',care:'Follow-ups',durations:'Milestones',together:'Your story together',holidays:'Holidays',thread:'Conversation rhythm',daylight:'Daylight',weather:'Weather',music:'Music',viewing:'What you watch'})[k]||k,({weather:'Local conditions, updated hourly.',daylight:'Seasons, moon and daylight.',dates:'Upcoming birthdays and anniversaries.',care:'Things worth checking in about.',durations:'Time since important dates.',together:'Anniversaries and day counts from your first conversation.',holidays:'Public holidays where you live, looked up once.',thread:'Time since your last conversation.',music:'Spotify: what you play, and your artists for album picks. Off, Spotify is never read.',viewing:'What is on and what you finished on your Plex or Jellyfin, and what you watch together. Set the server below.'})[k]||blurb,s.sensors.includes(k),`data-sensor="${esc(k)}"`)).join('')}
+      toggleRow('sensor-'+k,({dates:'Important dates',care:'Follow-ups',durations:'Milestones',together:'Your story together',holidays:'Holidays',thread:'Conversation rhythm',daylight:'Daylight',weather:'Weather',music:'Music',viewing:'What you watch',onthisday:'On this day',plans:'Your word'})[k]||k,({weather:'Local conditions, updated hourly.',daylight:'Seasons, moon and daylight.',dates:'Upcoming birthdays and anniversaries.',care:'Things worth checking in about.',durations:'Time since important dates.',together:'Anniversaries and day counts from your first conversation.',holidays:'Public holidays where you live, looked up once.',thread:'Time since your last conversation.',music:'Spotify: what you play, and your artists for album picks. Off, Spotify is never read.',viewing:'What is on and what you finished on your Plex or Jellyfin, and what you watch together. Set the server below.',onthisday:'What you had on this date a month, a season or years ago, from her own records, so she can remember it with you.',plans:'When you say goodnight, brb or gotta go and the evening goes another way (still messaging, a film starting), she notices, and may tease you about it. She also knows when you get home or head out, if something tells her where you are. Never a lecture.'})[k]||blurb,s.sensors.includes(k),`data-sensor="${esc(k)}"`)).join('')}
   </div>
 
   <div class="section-heading" style="margin-top:20px">
@@ -383,6 +383,28 @@ const settingsPanels=[
     <p class="small dim" id="media-help"></p>
     <p class="small" id="media-status" role="status"></p>
   </div>
+  <p class="small dim" style="margin-top:14px">Watch on two servers, a Plex and a Jellyfin? She can follow another one the same way. Leave the address empty to follow just the one above.</p>
+  <div class="contact-settings">
+    <div class="contact-row">
+      <label class="contact-label" for="media-also-server">Also follow</label>
+      <div class="contact-controls">
+        <select id="media-also-kind">${options([['jellyfin','Jellyfin'],['plex','Plex']],(s.media_also&&s.media_also[0]||{}).kind||'jellyfin')}</select>
+        <input id="media-also-server" value="${esc((s.media_also&&s.media_also[0]||{}).server||'')}" placeholder="http://192.168.1.10:8096" style="max-width:280px">
+      </div>
+    </div>
+    <div class="contact-row">
+      <label class="contact-label" for="media-also-user">Your account there</label>
+      <div class="contact-controls">
+        <input id="media-also-user" value="${esc((s.media_also&&s.media_also[0]||{}).user||'')}" placeholder="the server's owner" style="max-width:220px">
+      </div>
+    </div>
+    <div class="contact-row">
+      <label class="contact-label" for="media-also-token">Its token</label>
+      <div class="contact-controls">
+        <input id="media-also-token" type="password" autocomplete="off" spellcheck="false" placeholder="${(s.media_also&&s.media_also[0]||{}).token_set?'Saved. Type to replace it':'Paste that server\'s token'}" style="max-width:280px">
+      </div>
+    </div>
+  </div>
   ${settingsFooter('Save')}`;
   wireToggles(host);
   const kind=host.querySelector('#media-kind');
@@ -396,6 +418,11 @@ const settingsPanels=[
     // Sent only when typed, so saving never clears a token it cannot show.
     const typed=host.querySelector('#media-token').value.trim();
     if(typed)payload.media_token=typed;
+    payload.media_also_server=host.querySelector('#media-also-server').value.trim();
+    payload.media_also_kind=host.querySelector('#media-also-kind').value;
+    payload.media_also_user=host.querySelector('#media-also-user').value.trim();
+    const typedAlso=host.querySelector('#media-also-token').value.trim();
+    if(typedAlso)payload.media_also_token=typedAlso;
     return payload;
   };
   host.querySelector('#media-check').onclick=async()=>{
@@ -403,13 +430,14 @@ const settingsPanels=[
     status.className='small dim';status.textContent='Checking…';
     try{
       await saveSettings(media());
-      host.querySelector('#media-token').value='';
+      host.querySelector('#media-token').value='';host.querySelector('#media-also-token').value='';
       const r=await api('/viewing/check',{method:'POST'});
       if(!r.ok)throw Error(r.detail);
       status.className='small';
       status.textContent=`Connected to ${r.server}, reading ${r.account}.`
         +(r.playing?` On now: ${r.playing}.`:'')
-        +(r.latest?` Last finished: ${r.latest}, ${r.latest_when}.`:' Nothing finished in the last two weeks.');
+        +(r.latest?` Last finished: ${r.latest}, ${r.latest_when}.`:' Nothing finished in the last two weeks.')
+        +(r.also||[]).map(x=>x.ok?` Also connected to ${x.server}, reading ${x.account}.`:` ${x.server} at ${x.address}: ${x.detail}.`).join('');
     }catch(error){
       const said=String(error.message||'The check failed');
       status.innerHTML=`<span class="bad">${esc(said.charAt(0).toUpperCase()+said.slice(1))}.</span>`;
@@ -434,6 +462,118 @@ const settingsPanels=[
     if(reader!==s.local_web_reader)payload.local_web_reader=reader;
     return saveSettings(payload);
   });
+ }},
+
+{id:'realism',title:'Realism',
+ blurb:'Living alongside you: watching together, your devices, and the small things she does on her own',
+ keywords:'realism immersion watch along watching together movie film show tv plex jellyfin subtitles dialogue commentary reactions watch smartwatch wearable buzz vibrate device bridge on this day your word goodnight plans story chapters memoir',
+ async render(host){
+  const s=await api('/settings');
+  const reach=new Set(s.watchalong_reach||[]);
+  const reachRow=(key,label,blurb)=>toggleRow('reach-'+key,label,blurb,reach.has(key),`data-reach="${esc(key)}"`);
+  const senses=new Set(s.sensors||[]);
+  const senseRow=(key,label,blurb)=>toggleRow('real-'+key,label,blurb,senses.has(key),`data-realsense="${esc(key)}"`);
+  host.innerHTML=`
+  <div class="section-heading">
+    <h3 class="section-subheading">Watching together</h3>
+  </div>
+  <p class="small dim">While you play something on your own media server (set under Awareness), she follows its dialogue line by line from its subtitles, so whatever you say to her about it, she knows the scene. She never knows anything past the point you are at. The titles and lines reach her model provider like the rest of what she knows.</p>
+  <div class="contact-settings">
+    <div class="contact-row">
+      <label class="contact-label" for="watchalong">Speaking up</label>
+      <div class="contact-controls">
+        <select id="watchalong">${options([
+          ['off','Off: she does not follow along'],
+          ['quiet','Only when you talk to her'],
+          ['moments','Big moments only'],
+          ['occasional','Now and then'],
+          ['commentary','Running commentary'],
+          ['auto','Automatic: now and then, running commentary on a local model']],s.watchalong)}</select>
+      </div>
+    </div>
+    <div class="contact-row">
+      <label class="contact-label" for="watchalong-scope">Follows</label>
+      <div class="contact-controls">
+        <select id="watchalong-scope">${options([['anything','Anything you play'],['together','Only what you agreed to watch together']],s.watchalong_scope)}</select>
+      </div>
+    </div>
+  </div>
+  <p class="small dim" style="margin-top:10px">Where what she says reaches you, in this order:</p>
+  <div class="sensor-grid">
+    ${reachRow('last','Where you last talked','On the device you wear if that is where you were talking, in the chat if that is where you were. Your other choices below still apply.')}
+    ${reachRow('watch','Your watch','A buzz and a few words: a light tap, a note, or a playful nudge. Through your device bridge.')}
+    ${reachRow('wearable','Something you wear','Shown on a wearable when it is on: a badge, a necklace. Through your device bridge.')}
+    ${reachRow('telegram','Telegram','A chat message, so the conversation can carry on there.')}
+    ${reachRow('screen','The TV screen','Jellyfin can show her words on the playing screen. Plex has no way to.')}
+  </div>
+
+  <div class="section-heading" style="margin-top:20px">
+    <h3 class="section-subheading">Your devices</h3>
+  </div>
+  <p class="small dim">A bridge to your own devices for her short messages on her own: a watch buzz, a line on something you wear. It gets a POST with the text, a kind (tap, message or nudge) and where to show it (auto, watch, wearable or both), with this token.</p>
+  <div class="contact-settings">
+    <div class="contact-row">
+      <label class="contact-label" for="bridge-url">Bridge address</label>
+      <div class="contact-controls">
+        <input id="bridge-url" value="${esc(s.device_bridge_url||'')}" placeholder="http://127.0.0.1:8080/knock" style="max-width:320px">
+      </div>
+    </div>
+    <div class="contact-row">
+      <label class="contact-label" for="bridge-token">Token</label>
+      <div class="contact-controls">
+        <input id="bridge-token" type="password" autocomplete="off" spellcheck="false" placeholder="${s.device_bridge_token_set?'Saved. Type to replace it':'Paste the bridge token'}" style="max-width:280px">
+        <button class="quiet" id="bridge-test" type="button">Save and send a test buzz</button>
+      </div>
+    </div>
+    <p class="small" id="bridge-status" role="status"></p>
+  </div>
+
+  <div class="section-heading" style="margin-top:20px">
+    <h3 class="section-subheading">Little things she notices</h3>
+  </div>
+  <p class="small dim">Read from her own records; nothing new is sent anywhere. The same switches are under Awareness → Sensors.</p>
+  <div class="sensor-grid">
+    ${senseRow('onthisday','On this day','What you had on this date a month, a season or years ago: something you said, a film you watched together, a moment she kept. She may bring one up, once and lightly.')}
+    ${senseRow('plans','Your word','When you say goodnight, brb or gotta go and the evening goes another way (still messaging, a film starting, out at the shop), she notices and may tease you about it; and she knows when you get home or head out, if something tells her where you are. Never a lecture.')}
+  </div>
+  <p class="small dim" id="story-status" style="margin-top:10px"></p>
+  ${settingsFooter('Save')}`;
+  wireToggles(host);
+  api('/realism/story').then(st=>{
+    const el=host.querySelector('#story-status');
+    if(!el)return;
+    const n=(st.months||[]).length;
+    el.textContent=n
+      ?`Her story: ${n} month${n===1?'':'s'} written (the latest, ${st.latest})${(st.years||[]).length?`, and ${st.years.length} year${st.years.length===1?'':'s'}`:''}. ${st.so_far?'"Our story so far" goes with her into every conversation.':''} The chapters are in ${st.folder}.`
+      :'Her story: she writes the first chapter after your first month together ends (the story job).';
+  }).catch(()=>{});
+  const collect=(current=s)=>{
+    const real=[...host.querySelectorAll('[data-realsense]')];
+    const mine=new Set(real.map(x=>x.dataset.realsense));
+    const payload={
+      watchalong:host.querySelector('#watchalong').value,
+      watchalong_scope:host.querySelector('#watchalong-scope').value,
+      watchalong_reach:[...host.querySelectorAll('[data-reach]')].filter(x=>x.checked).map(x=>x.dataset.reach),
+      sensors:[...(current.sensors||[]).filter(k=>!mine.has(k)),...real.filter(x=>x.checked).map(x=>x.dataset.realsense)],
+      device_bridge_url:host.querySelector('#bridge-url').value.trim()};
+    const typed=host.querySelector('#bridge-token').value.trim();
+    if(typed)payload.device_bridge_token=typed;
+    return payload;
+  };
+  host.querySelector('#bridge-test').onclick=async()=>{
+    const status=host.querySelector('#bridge-status');
+    status.className='small dim';status.textContent='Sending…';
+    try{
+      await saveSettings(collect());
+      host.querySelector('#bridge-token').value='';
+      const r=await api('/realism/test-bridge',{method:'POST'});
+      if(!r.ok)throw Error(r.detail||'The bridge did not take it');
+      status.className='small';status.textContent=`Sent: it reached ${r.reached}.`;
+    }catch(error){
+      status.innerHTML=`<span class="bad">${esc(String(error.message||'The test failed'))}.</span>`;
+    }
+  };
+  wireSave(host,async()=>saveSettings(collect(await api('/settings'))));
  }},
 
 {id:'photos',title:'Photo sessions',
@@ -1637,7 +1777,7 @@ function androidHostingTips(){
    when she may write, where she is, photos, voice). Everything below them has
    working defaults and is there for when someone wants it. */
 const SETTINGS_NAV=[
-  ['Essentials',['models','contact','awareness','photos','connect-voice']],
+  ['Essentials',['models','contact','awareness','realism','photos','connect-voice']],
   ['Companion',[
     {route:'roster',title:'Companions',blurb:'Create, adopt, switch or archive a companion'},
     {route:'identity',title:'Identity',blurb:'Name, personality, appearance and story'},

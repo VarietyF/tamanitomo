@@ -1,15 +1,19 @@
 """Read-only owner transcripts for quote-backed memory and cross-channel context.
 
-Only explicitly trusted local sessions and the owner's Telegram direct messages
-may become evidence. Roles, platform message IDs, profile boundaries, and Hermes
-compression markers are checked in code; message wording never establishes who
-said it. This reader creates no cache, journal, lock, or additional message store.
+Only explicitly trusted local sessions, the owner's Telegram direct messages and
+the Hermes API conversations the owner names (companion.json
+`owner_api_conversations`) may become evidence. Roles, platform message IDs,
+profile boundaries, and Hermes compression markers are checked in code; message
+wording never establishes who said it. This reader creates no cache, journal,
+lock, or additional message store.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import json
+import re
+import unicodedata
 import os
 from pathlib import Path
 import sqlite3
@@ -26,11 +30,53 @@ LOCAL_SOURCES = ("cli", "desktop", "tui", "oneshot")
 # paging through them 200 rows at a time to find the conversation made the chat
 # feed take most of a second on every load.
 OWNER_SOURCES = LOCAL_SOURCES + ("telegram",)
+# Hermes's API server. Any client holding the API key can open a conversation there (a
+# script, a shared front end), so none is the owner's by default. A conversation the
+# owner names in companion.json (`owner_api_conversations`, name -> what to call the
+# place: a game add-on, a voice front end) is read like Telegram and the app.
+API_SOURCE = "api_server"
+# Beside state.db, Hermes's API server keeps the names clients give `conversation` on
+# /v1/responses: conversations(name -> latest response id) and responses(response id ->
+# a JSON record whose "session_id" is the transcript that turn ran in).
+RESPONSE_STORE = "response_store.db"
 BINDING_FILE = ".tamanitomo-chat-owner.json"
 # Hermes 0.23 freezes a local conversation's launch policy (its model among it) when the
 # conversation starts and keeps it in state_meta under this key plus the session id.
 # `--resume` runs that policy, so a model plan applied later never reaches it.
 LOCAL_POLICY_PREFIX = "gateway.local_policy.v1:"
+
+
+# A client may put context it gathered itself before the human's words (a game add-on:
+# the character, the zone, the quest log) as a "[Label, added automatically ...]" block
+# closed by "[/Label]". It is not what the human said; quoted into another conversation,
+# the feed or her memory it would crowd out what they did say. The conversation it came
+# in keeps it whole.
+AUTO_BLOCK = re.compile(
+    r"\A\s*\[([^\],\n]{1,40}),\s*added automatically[^\]\n]*\]\n.*?\n\[/\1\]\s*", re.S
+)
+
+
+# Hermes's whole-reply markers for "chose not to reply" (its gateway's response filters). A turn that
+# ended in one said nothing, so it is no part of the conversation: not her words, not memory.
+SILENT_MARKERS = frozenset({"[SILENT]", "SILENT", "NO_REPLY", "NO REPLY"})
+
+
+def silent(text):
+    """True when a reply is nothing but a no-reply marker ("[SILENT]", "NO_REPLY", "[ silent ]")."""
+    if not isinstance(text, str) or len(text) > 64:
+        return False
+    canon = "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    canon = re.sub(r"\[\s+|\s+\]", lambda m: m.group(0).strip(), canon)
+    canon = " ".join(canon.split()).rstrip(".!").upper()
+    return canon in SILENT_MARKERS
+
+
+def spoken(text):
+    """The human's own words, without a client's automatic context block."""
+    if not isinstance(text, str):
+        return text
+    stripped = AUTO_BLOCK.sub("", text, count=1)
+    return stripped if stripped.strip() else text
 
 
 class SourceUnavailable(ValueError):
@@ -43,6 +89,8 @@ class OwnerBinding:
     terminal: bool = True
     telegram: tuple[str, ...] = ()
     origin: str = "none"
+    # (conversation name, what to call it) for each owner API conversation.
+    api: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -53,9 +101,78 @@ class Record:
     speaker: str
     occurred_at: float
     content: str
+    # What to call the place: an "api" record's ("the game"), or a "workspace" record's
+    # when the client holding that conversation named it; "" for every other record.
+    channel: str = ""
+
+
+def api_conversations(c):
+    """(name, label) for each Hermes API conversation companion.json names as the
+    owner's, sorted; () when none is named."""
+    named = getattr(c, "owner_api_conversations", None)
+    if not isinstance(named, dict):
+        return ()
+    return tuple(
+        sorted(
+            (str(name).strip(), str(label or "").strip() or str(name).strip())
+            for name, label in named.items()
+            if str(name).strip()
+        )
+    )
+
+
+def api_sessions(c, binding):
+    """{session id: label} for the transcript each named API conversation is on now.
+
+    Read-only from Hermes's response store (RESPONSE_STORE). A store that is missing,
+    locked or shaped differently trusts nothing rather than guessing; the names stay
+    trusted only through a session key a client declared (X-Hermes-Session-Key)."""
+    if not binding.api:
+        return {}
+    path = Path(c.home) / RESPONSE_STORE
+    if not path.is_file():
+        return {}
+    found = {}
+    try:
+        con = sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True, timeout=1)
+    except sqlite3.Error:
+        return {}
+    try:
+        con.execute("PRAGMA query_only=ON")
+        for name, label in binding.api:
+            join = (
+                "FROM conversations c JOIN responses r ON r.response_id=c.response_id "
+                "WHERE c.name=?"
+            )
+            try:
+                # Only the session id: the record also holds the whole history.
+                row = con.execute(
+                    f"SELECT json_extract(r.data,'$.session_id') {join}", (name,)
+                ).fetchone()
+            except sqlite3.OperationalError:
+                # No JSON functions in this SQLite, or a record that is not JSON.
+                row = con.execute(f"SELECT r.data {join}", (name,)).fetchone()
+                try:
+                    row = (json.loads(row[0]).get("session_id"),) if row else None
+                except (TypeError, ValueError, AttributeError):
+                    row = None
+            session = row[0] if row else None
+            if isinstance(session, str) and session.strip():
+                found[session.strip()] = label
+    except sqlite3.Error:
+        return {}
+    finally:
+        con.close()
+    return found
 
 
 def owner_binding(c):
+    binding = _channel_binding(c)
+    named = api_conversations(c)
+    return replace(binding, api=named) if named else binding
+
+
+def _channel_binding(c):
     path = Path(c.home) / BINDING_FILE
     if path.is_file() and not path.is_symlink():
         try:
@@ -96,9 +213,20 @@ def owner_binding(c):
     return OwnerBinding(origin="none" if not ids else "telegram-allowlist-ambiguous")
 
 
-def session_kind(row, binding, workspace):
+def session_kind(row, binding, workspace, api=None):
+    """(kind, "") for an owner conversation, else (None, why not). `api` maps the
+    session ids of the owner's named API conversations to their labels (api_sessions).
+    """
     source = str(row.get("source") or "").lower()
     chat_id = str(row.get("chat_id") or "")
+    if source == API_SOURCE:
+        known = str(row.get("session_id") or "") in (api or {})
+        declared = str(row.get("session_key") or "").strip()
+        if not (known or (declared and declared in dict(binding.api))):
+            return None, "unverified_source:" + source
+        if str(row.get("chat_type") or "dm").lower() != "dm":
+            return None, "group_or_channel"
+        return "api", ""
     if source in LOCAL_SOURCES:
         if row.get("session_id") in workspace:
             return (
@@ -150,13 +278,24 @@ def shared_store(c):
         return True
 
 
-def owner_evidence(c, callback, binding=None):
-    """Read one profile in one read-only connection, without copying its history."""
+def _runtime():
     root = str(Path(__file__).resolve().parents[2])
     if root not in sys.path:
         sys.path.append(root)
     from kit.app import runtime
 
+    return runtime
+
+
+def app_place(c, session):
+    """What the client holding this app conversation named its place, or "". A file
+    read, no transcript: the app records it before the client's turn runs."""
+    return _runtime().read_workspace_places(c).get(str(session or ""), "")
+
+
+def owner_evidence(c, callback, binding=None):
+    """Read one profile in one read-only connection, without copying its history."""
+    runtime = _runtime()
     binding = binding or owner_binding(c)
     try:
         with runtime.session_db(c) as state:
@@ -188,6 +327,8 @@ def owner_evidence(c, callback, binding=None):
                     params,
                     binding,
                     runtime.read_workspace_sessions(c),
+                    api_sessions(c, binding),
+                    runtime.read_workspace_places(c),
                 )
             )
     except (ValueError, sqlite3.Error, OSError) as exc:
@@ -206,6 +347,8 @@ class Transcript:
         params,
         binding,
         workspace,
+        api=None,
+        places=None,
     ):
         self.con = connection
         self.session_columns = session_columns
@@ -228,6 +371,18 @@ class Transcript:
             self.limits.append("This Hermes store does not record compression lineage.")
         deadline = time.monotonic() + 10
         self.con.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
+        # A named API conversation's earlier transcripts, before Hermes compressed it
+        # into the current one, are the same conversation.
+        self.api = {}
+        for session, label in (api or {}).items():
+            for ident in self.lineage(session):
+                self.api.setdefault(ident, label)
+        # The same for the app conversations a client named (runtime.note_place),
+        # newest name first.
+        self.places = {}
+        for session, label in reversed(list((places or {}).items())):
+            for ident in self.lineage(session):
+                self.places.setdefault(ident, label)
 
     def session(self, ident):
         ident = str(ident)
@@ -240,6 +395,7 @@ class Transcript:
                 ("parent_session_id", "parent"),
                 ("end_reason", "end_reason"),
                 ("started_at", "started_at"),
+                ("session_key", "session_key"),
             ]:
                 fields.append(
                     f"{name if name in self.session_columns else 'NULL'} AS {alias}"
@@ -253,7 +409,26 @@ class Transcript:
 
     def owner_session(self, ident):
         row = self.session(ident)
-        return session_kind(row, self.binding, self.workspace)[0] if row else None
+        return (
+            session_kind(row, self.binding, self.workspace, self.api)[0]
+            if row
+            else None
+        )
+
+    def channel_label(self, ident):
+        """What to call the place an owner API conversation, or an app conversation a
+        client named, happens, or ""."""
+        ident = str(ident)
+        if ident in self.api:
+            return self.api[ident]
+        row = self.session(ident) or {}
+        if str(row.get("source") or "").lower() != API_SOURCE:
+            # A compression continuation is still where its conversation was.
+            return next(
+                (self.places[i] for i in self.lineage(ident) if i in self.places), ""
+            )
+        declared = str(row.get("session_key") or "").strip()
+        return dict(self.binding.api).get(declared, "") if declared else ""
 
     def locked_route(self, ident):
         """The model this profile's local conversation is locked to, or None.
@@ -314,7 +489,8 @@ class Transcript:
             fields.append(
                 f"{('m.' + name) if name in self.message_columns else 'NULL'} AS {name}"
             )
-        sources = ",".join(f"'{name}'" for name in OWNER_SOURCES)
+        accepted = OWNER_SOURCES + ((API_SOURCE,) if self.binding.api else ())
+        sources = ",".join(f"'{name}'" for name in accepted)
         return (
             f"SELECT {','.join(fields)} FROM messages m JOIN sessions s ON s.id=m.session_id "
             f"WHERE {self.scope} AND s.source IN ({sources})"
@@ -324,7 +500,7 @@ class Transcript:
         session = self.session(row["session_id"])
         if session is None:
             return None
-        kind, reason = session_kind(session, self.binding, self.workspace)
+        kind, reason = session_kind(session, self.binding, self.workspace, self.api)
         if kind:
             if row["role"] not in ("user", "assistant"):
                 reason = "non_public_role"
@@ -334,6 +510,8 @@ class Transcript:
                 and not row["platform_message_id"]
             ):
                 reason = "unverified_sender"
+            elif row["role"] == "assistant" and silent(row["content"]):
+                reason = "silent"
             elif (
                 row["display_kind"]
                 or row["_compressed_summary"]
@@ -359,6 +537,7 @@ class Transcript:
         content = row["content"]
         if not isinstance(content, str):
             content = json.dumps(content, ensure_ascii=False)
+        content = spoken(content)
         return Record(
             str(row["id"]),
             str(row["session_id"]),
@@ -366,6 +545,11 @@ class Transcript:
             "owner" if row["role"] == "user" else "companion",
             float(row["timestamp"]),
             content,
+            (
+                self.channel_label(row["session_id"])
+                if kind in ("api", "workspace")
+                else ""
+            ),
         )
 
     def forward(self, after_stamp, after_id, end_stamp, end_inclusive=True):

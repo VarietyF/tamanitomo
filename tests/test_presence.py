@@ -1646,7 +1646,7 @@ class ShortFormSceneTests(AwakeFingerprintProseTests):
 
     def test_continue_can_correct_a_wrong_sleep_flag(self):
         presence.current(self.c)
-        out = presence.continue_scene(
+        presence.continue_scene(
             self.c,
             "Already up and about.",
             asleep=False,

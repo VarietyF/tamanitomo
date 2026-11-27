@@ -131,9 +131,13 @@ FACTS_FRACTION = 0.02
 FACTS_RESERVE_MAX = 60_000
 # The last messages from the human's other conversations -- another channel, or this
 # one before the morning's fresh start -- quoted so a new session can pick the thread
-# up. Reserved on top, like the facts, so it never pushes another section out.
-CONVERSATION_FRACTION = 0.004
-CONVERSATION_RESERVE_MAX = 4_000
+# up. Reserved on top, like the facts, so it never pushes another section out. Sized
+# for a real stretch of conversation (about forty messages): 4,000 characters held
+# five or six, and a companion reached in a second place did not know the two of
+# them had already talked that day. It is sent once per session and again only when
+# something new was said elsewhere, so the cost follows switching places, not turns.
+CONVERSATION_FRACTION = 0.02
+CONVERSATION_RESERVE_MAX = 16_000
 # The vault map is sent once per session and then rides in the cached prefix, so
 # it may take a larger slice than the per-turn injection. Automatic sizing gives
 # it a tenth of the window, up to 25K tokens; a fixed setting may go higher.
@@ -401,6 +405,13 @@ class Companion:
     # another channel, or this one before the morning's fresh start. Starting fresh
     # keeps replies quick; this keeps the thread.
     conversation_handoff: bool = True
+    # Conversations through Hermes's API server that are the human talking -- a game
+    # add-on, a voice front end -- by the name the client gives `conversation` on
+    # /v1/responses (or declares with X-Hermes-Session-Key), mapped to what to call
+    # the place: {"game-chat": "the game"}. An API caller is not the human by
+    # default (a script, a shared front end); named here, the conversation is read
+    # like Telegram and the app: quoted into the others and kept as the human's words.
+    owner_api_conversations: dict = dataclasses.field(default_factory=dict)
     # Read web pages on this machine instead of through a reading service. The kit
     # sets this up wherever no other reader was chosen in Hermes.
     local_web_reader: bool = True
@@ -421,6 +432,29 @@ class Companion:
     media_kind: str = "plex"  # plex | jellyfin
     media_user: str = ""
     media_token_file: str = ""
+    # More servers followed the same way (a Plex and a Jellyfin, say): each
+    # {"server": address, "kind": plex|jellyfin, "user": account or "", "token_file": path}.
+    media_also: list = dataclasses.field(default_factory=list)
+    # Watching together, live (companion_watchalong): while the human plays something on
+    # that server, she follows its dialogue and knows the scene whenever they talk.
+    # watchalong is how often she speaks up on her own: off | quiet (only when spoken to)
+    # | moments (a few big ones) | occasional (now and then) | commentary (often) | auto
+    # (occasional on a hosted chat model, commentary on a local one). watchalong_reach is
+    # where it reaches the human, in order: last (where the two of them last talked),
+    # watch, wearable (both through the device bridge), telegram, screen (Jellyfin shows it
+    # on the TV). watchalong_scope: anything the human plays, or only titles the two of
+    # them agreed to watch together.
+    watchalong: str = "quiet"
+    watchalong_reach: list = dataclasses.field(
+        default_factory=lambda: ["last", "watch"]
+    )
+    watchalong_scope: str = "anything"
+    # A bridge to the human's own devices for her short messages (a buzz on the watch, a
+    # line on something they wear): POST {text, kind: tap|message|nudge, surface: auto |
+    # watch | wearable | both, id} with a bearer
+    # token read from device_bridge_token_file, so no secret sits in this file.
+    device_bridge_url: str = ""
+    device_bridge_token_file: str = ""
     # Which sensors this profile has switched on, by name.
     sensors: list = dataclasses.field(default_factory=list)
     # Per-job model choices, written by `tamanitomo models`. Empty means "whatever
@@ -449,6 +483,24 @@ class Companion:
             raise ValueError("peer_interaction must be true or false")
         if not isinstance(self.conversation_handoff, bool):
             raise ValueError("conversation_handoff must be true or false")
+        if isinstance(self.owner_api_conversations, list):
+            # A bare list of names: each place is called by its name.
+            self.owner_api_conversations = {
+                name: name for name in self.owner_api_conversations
+            }
+        if not isinstance(self.owner_api_conversations, dict) or any(
+            not isinstance(name, str)
+            or not name.strip()
+            or len(name) > 256
+            or not isinstance(label, str)
+            or len(label) > 60
+            or any(ch in name + label for ch in "\r\n\t")
+            for name, label in self.owner_api_conversations.items()
+        ):
+            raise ValueError(
+                "owner_api_conversations must map API conversation names (up to 256 "
+                "characters) to what to call each place (up to 60 characters)"
+            )
         if not isinstance(self.local_web_reader, bool):
             raise ValueError("local_web_reader must be true or false")
         if self.alerts not in ("app", "chat"):
@@ -479,6 +531,68 @@ class Companion:
             raise ValueError("media_user must be an account name, or empty")
         if not isinstance(self.media_token_file, str):
             raise ValueError("media_token_file must be a path, or empty")
+        if not isinstance(self.media_also, list) or len(self.media_also) > 3:
+            raise ValueError("media_also must be a list of up to three more servers")
+        for extra in self.media_also:
+            if not isinstance(extra, dict):
+                raise ValueError(
+                    "each of media_also is {server, kind, user, token_file}"
+                )
+            address = extra.get("server")
+            if not isinstance(address, str) or not address.startswith(
+                ("https://", "http://")
+            ):
+                raise ValueError("each of media_also needs an http(s) server address")
+            if any(mark in address for mark in ("?", "#", "@")):
+                raise ValueError(
+                    "a media_also server is its address alone; the token goes in its own file"
+                )
+            if extra.get("kind", "jellyfin") not in ("plex", "jellyfin"):
+                raise ValueError('a media_also kind must be "plex" or "jellyfin"')
+            if (
+                not isinstance(extra.get("user", ""), str)
+                or len(extra.get("user", "")) > 100
+            ):
+                raise ValueError("a media_also user must be an account name, or empty")
+            if not isinstance(extra.get("token_file", ""), str):
+                raise ValueError("a media_also token_file must be a path, or empty")
+        if self.watchalong not in (
+            "off",
+            "quiet",
+            "moments",
+            "occasional",
+            "commentary",
+            "auto",
+        ):
+            raise ValueError(
+                "watchalong must be off, quiet, moments, occasional, commentary or auto"
+            )
+        reach = self.watchalong_reach
+        if (
+            not isinstance(reach, list)
+            or len(reach) > 5
+            or any(
+                r not in ("last", "watch", "wearable", "telegram", "screen")
+                for r in reach
+            )
+            or len(set(reach)) != len(reach)
+        ):
+            raise ValueError(
+                "watchalong_reach must list last, watch, wearable, telegram or screen, each once"
+            )
+        if self.watchalong_scope not in ("anything", "together"):
+            raise ValueError('watchalong_scope must be "anything" or "together"')
+        if not isinstance(self.device_bridge_url, str) or (
+            self.device_bridge_url
+            and not self.device_bridge_url.startswith(("https://", "http://"))
+        ):
+            raise ValueError("device_bridge_url must be an http(s) address, or empty")
+        if any(mark in self.device_bridge_url for mark in ("#", "@")):
+            raise ValueError(
+                "device_bridge_url must be the address alone (the token goes in its own file)"
+            )
+        if not isinstance(self.device_bridge_token_file, str):
+            raise ValueError("device_bridge_token_file must be a path, or empty")
         if not isinstance(self.adult_images, bool):
             raise ValueError("adult_images must be true or false")
         if self.adult_images and not self.explicit:

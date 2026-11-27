@@ -224,6 +224,7 @@ Defined in `kit/templates/cron/manifest.json`. Which ones you get depends on the
 | daily journal and reflection | 04:00 | yes | companion, colleague |
 | weekly reflection | Sun 22:00 | yes | companion, colleague |
 | monthly reflection | 1st, 09:00 | yes | companion, colleague |
+| story | 09:40, only when a chapter is due | yes, skipped otherwise | companion |
 | weekly hygiene | Sun 21:30 | yes | all |
 | morning | 10 min after quiet hours end | yes | companion |
 | wind-down | 20 min before quiet hours start | yes | companion |
@@ -284,7 +285,9 @@ Optional, cheap, silent when they have nothing. Chosen at setup, changeable in t
 | `care` | Things worth asking about again | a `care.md` you write |
 | `durations` | "married 13 years", counted from the date | dated lines in `dates.md` |
 | `thread` | How long since either of you wrote, and what that gap means | nothing |
-| `viewing` | What you watch on your own Plex or Jellyfin: what is on, what you finished lately, what you watch together | the server's address and token, set in Settings → Awareness |
+| `viewing` | What you watch on your own Plex or Jellyfin (or both: a second server under "Also follow", `media_also`): what is on, what you finished lately, what you watch together. Each item knows its server; one server down leaves the other standing | the server's address and token, set in Settings → Awareness |
+| `onthisday` | What the two of you had on today's date a month, three and six months, and each year ago: something you said, a film you watched together, a moment she kept, a time she felt close. Furthest back first, at most four lines; she may bring one up, once and lightly | nothing; read from her own records |
+| `plans` | Your word: when you said goodnight, brb or gotta go and what followed does not match (more messages on any channel, a game, a film finishing or playing, music on, arriving somewhere or leaving the house per `ambient/where.json`, or still gone long after "right back"), one plain paragraph so she can notice it the way a partner would: a tease, a raised eyebrow, care if it is very late. Read live each turn; nothing when the evening went as you said. Never a lecture or a reason to message you. English phrasing | nothing; read from her own records |
 
 **A sensor that cannot report writes nothing and deletes its old file.** Not knowing the weather is
 fine; yesterday's weather presented as today's is not.
@@ -298,6 +301,39 @@ scoped to this profile the same way recall is, and reports the gap with a regist
 of guidance, never an instruction. After four days of silence she may say she has missed you, once,
 plainly, as a feeling of hers — the guidance says explicitly that it is never a reproach and never a
 reason you must reply.
+
+### Watching together, live
+
+While you play something on your own server, `companion_watchalong` follows its dialogue line by line
+(Settings → Realism). It runs inside the app; no model is called to follow, only to speak.
+
+- **Where the lines come from**, in order: a subtitle file the server hands out (Plex sidecars; any
+  text track on Jellyfin, which extracts embedded ones itself); the film's own embedded text track,
+  read with ffmpeg at the film's pace from a little ahead of the playhead; or, with no text track at
+  all, the film's sound, heard by faster-whisper (the interpreter Hermes installs for its own voice
+  transcription; `TAMANITOMO_LISTEN_PYTHON` names another). Reading the film is skipped above 20 Mbps
+  so it never crowds your own stream. The server's token reaches ffmpeg through a relay on
+  127.0.0.1, never on a command line.
+- **The playhead** comes from the server every five seconds and runs on between reports. A jump of
+  more than fifteen seconds is a seek: lines skipped over are never reacted to.
+- **She never sees past the playhead.** Her context while something plays has the last minute or so
+  of dialogue ("On screen now"), and that is all.
+- **Speaking up** (`watchalong`): `off`, `quiet` (only when you talk to her), `moments`, `occasional`,
+  `commentary`, or `auto` (occasional on a hosted chat model, commentary on a local one). Lines that
+  land (a confession, a promise, a goodbye, a gasp in the hearing-impaired track) are scored without a
+  model; at one that clears the pace's bar, and no sooner than its gap allows, she is asked in a small
+  call of her chat model whether she would say anything. She may say nothing.
+- **Reach** (`watchalong_reach`, in order): `last` (the wearable or the chat you last talked on),
+  `watch`, `wearable`, `telegram`, `screen` (Jellyfin shows it on the TV; Plex has no way to).
+- Everything she says is kept in `companion-life/watchalong.jsonl` and shown back to her afterwards.
+
+### Your devices
+
+`device_bridge_url` and `device_bridge_token_file`: a bridge to your own devices for her short
+messages, a buzz on the watch or a line on something you wear. It receives `POST {text, kind, surface,
+id}` with `Authorization: Bearer <token>`; `kind` is `tap`, `message` or `nudge`, `surface` is `auto`,
+`watch`, `wearable` or `both`, and it answers `{"delivered": [...]}`. Settings → Realism has a button
+that sends one test.
 
 ### The computed bars
 
@@ -320,10 +356,22 @@ one message off the queue and decides whether it leaves, from the clock and a co
 | --- | --- |
 | Past its `ttl_hours` | **Dropped.** Never sent late. An evening thought is not worth saying at 2am, and a backlog delivered at once is the most alarming thing a companion can do |
 | Before its `not_before` | Held |
-| Inside quiet hours | Held — unless you wrote in the last 45 minutes, in which case you are visibly awake and the window steps aside. That does not raise the daily cap |
+| Inside quiet hours | Held — unless you wrote in the last 45 minutes (the `thread` sensor says when), in which case you are visibly awake and the window steps aside. That does not raise the daily cap |
 | Content permission | `yes` sends, `ask` withholds with a reason she can act on ("offer it in words, do not attach it unasked"), `no` never sends |
 | Daily cap | Held. The counter is on disk, checked and reserved atomically under a sidecar lock, including on Windows |
 | Delivery failed or unconfirmed | The slot is kept and it is **never retried**. A double message is worse than a missing one. Only a confirmed success is `sent`; anything Hermes did not confirm (an error it reports, a timeout, unreadable output) is `unknown`, because it may have arrived |
+
+**A touch rather than a text.** With a device bridge set (Settings → Realism), a message can have
+`"target": "watch"`: up to 160 characters, words only, and a `"buzz"` of `tap` (a light touch, the
+wordless kind of thinking of you), `message` or `nudge` (playful). It goes through the bridge instead
+of Hermes and through every check above, daily cap included. Her outreach policy mentions it only when
+a bridge exists, and a good morning or a goodnight may be one.
+
+**A touch while you talk.** In a conversation (never a scheduled run) her context offers
+`companion_outbox.py touch --buzz nudge|tap|message --text "..."`: up to 60 characters, straight
+through the bridge at once rather than the queue (a nudge five minutes late is not a nudge), never
+counted against her outreach, at most six an hour, logged in `<life>/touches.jsonl`. The playful
+"oh stoppp" with a nudge, a tap when something lands softly; on top of her reply, never instead of it.
 
 One message per run, deliberately.
 
@@ -360,7 +408,9 @@ companion starts.
 ## Memory and retention
 
 Life and memory records are archived rather than discarded, and every archive stays searchable
-through `companion_recall.py`.
+through `companion_recall.py`. An explicit question about the past also reads her chapters (her own
+account of a month, a lead to when something happened), and when Hermes's session store is gone or
+unreadable, the human's own messages come from the vault's conversation archive instead.
 
 | File | Window | Archived to |
 | --- | --- | --- |
@@ -368,6 +418,43 @@ through `companion_recall.py`.
 | `soul/Lifelog.md` | 180 days | `soul/archive/Lifelog-YYYY-MM.md` |
 | `memories/USER.md`, `memories/MEMORY.md` | at 80% of the Hermes cap, down to 60% | `soul/memory-archive/` |
 | `companion-life/.inputs/`, `cron/output/` | 7 days — **deleted** | nothing; these are the only two |
+| Every conversation with the human (Hermes's session database) | kept | also copied to `conversations/<year>/<year>-<month>.jsonl` and `.md` in the vault, append-only, by the vault commit job |
+
+**The conversation archive** (`companion_archive`) copies every message between the two of you, from every
+channel the thread counts and never a scheduled job, into plain monthly files in the vault: a `.jsonl` with
+the exact record and a `.md` to read. The vault is committed every fifteen minutes and backed up with it,
+so the conversations outlive any one database. A cursor in `state/conversation-archive.json` remembers the
+last message copied; a run with nothing new costs one small read. A reply that was nothing but
+Hermes's no-reply marker (`[SILENT]`, `NO_REPLY`) said nothing, so it is never kept as her words.
+
+**Where they are** (`ambient/where.json`, written by a client, never by the kit): a device or phone
+bridge may tell her where the human is as a named place and times, never coordinates:
+`{"checked_at", "updated_at", "place" ("" when between places), "since", "left", "moving", "source"}`.
+`plans` uses it ("they got to the shop at 00:15" after a goodnight; "they left Home"); arriving at a place
+named Home is never a mismatch. With `"from"` and `"from_since"` (written only on a real change, never a first
+reading), her context also gets a "Comings and goings" line for 45 minutes after an arrival or a departure
+("got home at 17:40, after 9 hours out"), with the rule never to track or question where they go.
+
+**Her memory, watched** (`companion_watch.check_keeping`, in the hourly health watch, no model): it raises
+a problem when the conversation archive is more than three hours behind the conversations, when the vault
+has had changes waiting twelve hours without a commit, when a month's chapter is five days overdue while
+the story job exists, and when a backup that reports itself in `state/vault-backup-last.json`
+(`{"ok": true|false, "at": ISO time, "error": "..."}`) failed or is 36 hours old. Problems show like any
+other: the banner, Diagnostics, `ambient/health.md`, and the alert you chose. Before telling anyone, the watch mends what it safely can: it copies the conversations the archive missed and commits a vault left with changes waiting (the vault commit job's own work), and keeps the last twenty mends in `state/companion-watch-healed.jsonl`. A vault repo that knows no author (made by hand, restored from a backup) is given the vault's own identity, so its commits never fail quietly.
+
+**Chapters** (`companion_chapters`, the story job): once a month she writes the month just ended
+as a chapter of her memoir of their life together (`story/<year>/<year>-<month>.md`, a few hundred
+words), from the archive's most memorable lines of each day (never a line about a password, a key
+or a token; game events apart), the moments she kept, what she felt and what they watched. A month
+with too little in it folds into the next chapter, so how it all began is never lost. After a year
+ends, the year (`story/<year>/<year>.md`) from its months; and from all of them `story/so-far.md`,
+the whole story in under 300 words, which rides in her context and is written again whenever a
+chapter is newer (one she edited, too). The story job runs daily at 09:40 on her reflection model,
+but its pre-read prints nothing unless a piece is due, and Hermes skips a run with nothing to read:
+most days cost nothing. She saves each piece with her file tools and runs `check`, which signs it
+with the date and names what is next (up to three pieces a run, so a long history catches up in a
+few days). The kit never rewrites a chapter. `companion_chapters.py status` shows what exists and
+what is next; `material YYYY-MM` prints what a month would be written from. In the app, Journal → Story reads them.
 
 The weekly hygiene job runs all of these. Rotation dates an entry by the ISO date in its `##`
 heading — which is why the daily journal is told to head every entry exactly `## YYYY-MM-DD` —

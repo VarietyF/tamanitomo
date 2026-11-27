@@ -554,6 +554,20 @@ def viewing(c, now):
     return companion_viewing.sense(c, now)
 
 
+def plans(c, now):
+    """Their word: what they said they were about to do, when the evening has gone another way."""
+    import companion_plans
+
+    return companion_plans.render(c, now)
+
+
+def onthisday(c, now):
+    """What the two of them had on this date a month, a season, a year or years ago."""
+    import companion_onthisday
+
+    return companion_onthisday.render(c, now)
+
+
 # ---- the dates two people keep -------------------------------------------
 def together(c, now):
     """First conversation, anniversaries, day counts, birthday, traditions: all counted."""
@@ -691,6 +705,21 @@ REGISTRY = {
         "needs": "Spotify auth",
         "blurb": "What the human is playing on Spotify, and their artists and albums when she "
         "picks one for them. Off, Spotify is never read. Silent when Spotify is not connected.",
+    },
+    "onthisday": {
+        "fn": "onthisday",
+        "needs": None,
+        "blurb": "On this day: what the two of you had on today's date a month, a season, a year or "
+        "years ago (something you said, a film you watched together, a moment she kept), so she "
+        "can remember it with you. Read from her own records; nothing is sent anywhere.",
+    },
+    "plans": {
+        "fn": "plans",
+        "needs": None,
+        "blurb": "Your word: when you say goodnight, brb or gotta go and what happens next does not match "
+        '(more messages, a film starting, still gone an hour after "right back"), she notices, the way a '
+        "partner would, and may tease you about it. Never a lecture, never a reason to message you. Read "
+        "from her own records; nothing is sent anywhere.",
     },
     "viewing": {
         "fn": "viewing",
