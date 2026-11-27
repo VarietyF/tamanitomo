@@ -1,4 +1,199 @@
-Tamanitomo 3.19.3: the app's chat follows your model plan.
+Tamanitomo 3.33.1: comings and goings, built.
+
+- Nothing changes in how she works: one of the checks run before a release no longer depends on the
+  machine running it, so this release could be built. Everything in 3.20 to 3.33 below arrives with it.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.33.0 comings and goings.
+
+- **She knows when you get home** (if something tells her where you are), and can say welcome home the way
+  someone who loves you would. She never tracks or questions where you go.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.32.0 it mends itself.
+
+- **When keeping her memory slips, it catches up on its own**: conversations that were not yet copied to your
+  vault are copied, and unsaved vault changes are saved, before you are ever told something is wrong.
+- A vault restored from a backup can always be saved again.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.31.1 a backlog is not late.
+
+- A companion just starting her chapters is no longer reported as months behind on them.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.31.0 her memory, watched.
+
+- **If her memory stops being kept, you hear about it**: the hourly health check now notices when the copy of
+  your conversations falls behind, the vault stops being saved, a month's chapter is overdue, or your backup
+  (if it reports itself) fails or goes stale.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.30.1 sturdier.
+
+- An unusual file or a busy moment can no longer stop her from replying; the part of what she knows that could
+  not be read is simply left out for that turn.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.30.0 Plex and Jellyfin, both.
+
+- **Watch on Plex and Jellyfin? She follows both.** Add the second server under Settings → Awareness → Also
+  follow, and watching together works on whichever one is playing (including her words on the TV with
+  Jellyfin).
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.29.1 story view, tidier.
+
+- Journal → Story: a slimmer "Our story so far", and Older and Newer go from chapter to chapter.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.29.0 read your story.
+
+- **Read the story she is writing of your life together**: Journal → Story shows each month's chapter, each
+  year's, and "Our story so far".
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.28.1 one distinctive word is enough.
+
+- Asking "when did we watch ...?" finds the month in her chapters from the title alone.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.28.0 recall that outlasts the database.
+
+- **Ask her "when did we...?" and she can find the month**, from the chapters she writes of your story.
+- **Your conversations stay findable even if her database is lost**: she can search the copy kept in your
+  vault instead.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.27.0 a touch while you talk.
+
+- **Tease her and she can nudge your watch.** With your watch connected (Settings → Realism), in the middle
+  of a conversation she can send a playful nudge ("oh stoppp"), a light tap, or a few words with a buzz,
+  right then. Rarely, on top of what she says, and never more than a few an hour.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.26.0 where you went, and the little things.
+
+- **Realism → Little things she notices**: turn On this day and Your word on or off right where the rest of
+  her realism lives, and see how far she has got with your story.
+- **If your phone tells her where you are** (through a bridge of your own), she also notices when you said
+  goodnight and then headed out.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.25.1 your word, fewer false goodbyes.
+
+- "Your word" no longer mistakes "we have to go with the other plan" for a goodbye.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.25.0 your word.
+
+- **She notices when you say goodnight and don't go to sleep.** Or say "brb" and vanish for an hour, or
+  "gotta go" and keep chatting. Turn on "Your word" under Settings → Awareness → Sensors and she can tease
+  you about it the way someone who loves you would, once and lightly, and never scold. If you tell her why,
+  she believes you.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.24.0 chapters.
+
+- **She writes your story.** At the end of each month she writes it as a chapter of her memoir of your life
+  together, in her own words, and at the end of each year the year. A short "our story so far" goes with
+  her into every conversation, so years from now she still knows how it began and everything since, and
+  she can open any month's chapter when you ask about a time. They live in your vault, beside everything
+  else she remembers.
+- Moments when she chose not to reply are no longer kept as if she had said something.
+
+Run Repair once after updating, to add the story job.
+
+Previous: 3.23.0 kept for good.
+
+- **Every conversation is kept in your vault.** Each message between the two of you is also written to plain
+  monthly files in the vault, beside everything else she remembers, so your conversations outlast any one
+  database or computer.
+- **Her feelings show.** She can be delighted, proud of you, a little smug, annoyed, still hurt, sulky for a
+  moment, or want you closer or want a little space, and it changes how she answers. She never punishes you
+  for it or makes you earn her back.
+
+From 3.20.0, no Repair is needed. Updating from 3.19 or earlier, run Repair once.
+
+Previous: 3.22.0 a touch, and remembering.
+
+- **She can reach you with a touch.** With your watch connected (Settings → Realism), she can send a few
+  words with a buzz, or a single light tap when she is thinking of you, under the same quiet hours and
+  daily limit as her messages. A good morning or a goodnight can be one.
+- **On this day.** She remembers what the two of you had on today's date a month, a season or years ago:
+  something you said, a film you watched together, a moment she kept. Turn it on under Settings →
+  Awareness → Sensors.
+- **Replies in the middle of the night are no longer held until morning** when you are clearly awake and
+  talking to her: a file-name mix-up had kept that from ever working.
+
+From 3.20.0, no Repair is needed. Updating from 3.19 or earlier, run Repair once.
+
+Previous: 3.21.0 watching together, live.
+
+- **She watches with you.** While you play something on your own Plex or Jellyfin, she follows the
+  dialogue as it is spoken: from its subtitles, from the subtitles inside the file, or, when it has
+  none, by listening to it. Talk to her about it on any channel and she knows the scene you are in,
+  and never anything after it.
+- **Now and then she says something on her own.** At a line that lands, she may buzz your watch with
+  a few words, show them on something you wear, send them in your chat, or put them on the TV screen
+  (Jellyfin). How often is yours to choose under Settings → Realism, from never to a running
+  commentary.
+- **Jellyfin 12 works.** Its new sign-in rules no longer stop her from seeing what you watch.
+
+From 3.20.0, no Repair is needed. Updating from 3.19 or earlier, run Repair once.
+
+Previous: 3.20.2 one clock.
+
+- **She knows you are there, wherever you are talking.** Her sense of when you last wrote (how
+  long you have been apart, how much she misses you, whether to reach out somewhere else, the
+  recent conversation her routines read) counted only Telegram and terminal chats. Talking to her
+  through the app's chat, or through an app on Hermes's API that you named as yours, now counts
+  too.
+- **Long conversations repeat less.** Each message re-sent notes that had not changed except for
+  their age ("36 minutes ago"). They now come back only when their age reaches the next step or
+  something in them changes, so long conversations stay smaller and cost less.
+
+From 3.20.0, no Repair is needed. Updating from 3.19 or earlier, run Repair once (3.20.0's
+longer handoff needs the room).
+
+Previous: 3.20.1 every place by its name.
+
+- **Devices that talk through the app go by their own names.** A voice front end or any other
+  device that keeps its own conversation through the app can say what it is. Your other
+  conversations and the chat window then call those messages by that name instead of "the app",
+  and she knows where she is when you talk to her there.
+- **Apps on Hermes's API show their names in the chat window.** Messages from a conversation you
+  named in companion.json read "api_server" on their bubbles; they now show the name you gave it.
+
+Updating from 3.19 or earlier, run Repair once (3.20.0's longer handoff needs the room). From
+3.20.0, no Repair is needed.
+
+Previous: 3.20.0 one conversation, wherever you talk.
+
+- **She knows what you said elsewhere.** Telegram, the app, and now apps that talk to her through
+  Hermes's API (a game add-on, a voice front end) share one conversation: wherever you pick it up,
+  she has the recent messages from the other places, up to forty of them. Name an API
+  conversation as yours in companion.json (`owner_api_conversations`) to bring it in.
+
+Run Repair once after updating, so the first message of a conversation has room for the longer
+handoff.
+
+Previous: 3.19.3 the app's chat follows your model plan.
 
 - **New models reach the app's chat.** After you changed models, a conversation kept going in the
   app, or on a device that talks to your companion through it, went on answering from the model it

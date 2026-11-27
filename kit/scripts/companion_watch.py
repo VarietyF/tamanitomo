@@ -444,6 +444,118 @@ def check_delivery(c, now):
     ]
 
 
+ARCHIVE_BEHIND_HOURS = (
+    3  # messages older than this, not yet in the conversation archive
+)
+VAULT_COMMIT_HOURS = 12  # changes waiting this long without a vault commit
+CHAPTER_LATE_DAYS = (
+    5  # a month over this long without its chapter (when the story job exists)
+)
+BACKUP_STALE_HOURS = (
+    36  # a backup that reports itself (state/vault-backup-last.json) this old
+)
+
+
+def check_keeping(c, now):
+    """Is her memory still being kept? The conversation archive keeping up with the conversations, the vault being
+    committed, last month's chapter written, and a backup that reports itself still succeeding. A memory meant to
+    last decades fails quietly, so these are checked every hour like everything else here.
+    """
+    out = []
+    # The archive: a message from hours ago that it has not copied means the vault commit job has stopped.
+    try:
+        import companion_archive as archive
+        import companion_transcript as transcript
+
+        after_stamp, after_id, _days = archive._cursor(c)
+        cutoff = now.timestamp() - ARCHIVE_BEHIND_HOURS * 3600
+
+        def first_waiting(view):
+            if view is None:
+                return None
+            for record in view.forward(after_stamp, after_id, cutoff):
+                return record
+            return None
+
+        waiting = transcript.owner_evidence(c, first_waiting)
+        if waiting is not None:
+            since = dt.datetime.fromtimestamp(waiting.occurred_at, now.tzinfo)
+            out.append(
+                f"the conversation archive is behind: messages since {since:%Y-%m-%d %H:%M} are not in the vault yet "
+                "(the vault commit job copies them)"
+            )
+    except Exception:  # noqa: BLE001 -- no store yet, or a store this check cannot read
+        pass
+    # The vault's own history: changes sitting uncommitted for half a day.
+    try:
+        import companion_vault as vault
+
+        root = pathlib.Path(c.vault)
+        if vault.is_repo(root):
+            status = vault._git(root, "status", "--porcelain")
+            last = vault._git(root, "log", "-1", "--format=%ct")
+            if (
+                status.returncode == 0
+                and status.stdout.strip()
+                and last.returncode == 0
+                and last.stdout.strip()
+            ):
+                hours = (now.timestamp() - int(last.stdout.strip())) / 3600
+                if hours >= VAULT_COMMIT_HOURS:
+                    out.append(
+                        f"the vault has changes waiting and no commit for {hours:.0f} hours"
+                    )
+    except Exception:  # noqa: BLE001
+        pass
+    # Last month's chapter, when the story job is there to write it.
+    try:
+        import companion_chapters as chapters
+
+        story = _jobs(c).get(f"{c.agent} story")
+        if story is not None:
+            piece = chapters.next_piece(c, now)
+            if piece and piece["kind"] == "month":
+                year, month = int(piece["what"][:4]), int(piece["what"][5:7])
+                due = dt.datetime(
+                    year + (month == 12), month % 12 + 1, 1, tzinfo=now.tzinfo
+                )
+                # A month older than the story job was owed from the day the job arrived, not from its own
+                # end: a long history catching up is not a story that is late.
+                try:
+                    created = dt.datetime.fromisoformat(str(story.get("created_at")))
+                    if created.tzinfo is None:
+                        created = created.replace(tzinfo=now.tzinfo)
+                    due = max(due, created)
+                except (TypeError, ValueError):
+                    pass
+                if now - due >= dt.timedelta(days=CHAPTER_LATE_DAYS):
+                    out.append(
+                        f"her chapter for {piece['label']} is {(now - due).days} days overdue "
+                        "(the story job writes it; see its last run)"
+                    )
+    except Exception:  # noqa: BLE001
+        pass
+    # A backup script may report itself in state/vault-backup-last.json ({"ok": bool, "at": ISO, "error": ...}).
+    try:
+        report = json.loads(
+            (pathlib.Path(c.home) / "state" / "vault-backup-last.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        at = dt.datetime.fromisoformat(str(report.get("at")))
+        if at.tzinfo is None:
+            at = at.replace(tzinfo=now.tzinfo)
+        if report.get("ok") is False:
+            out.append(
+                f"the last backup failed: {str(report.get('error') or 'no reason given')[:120]}"
+            )
+        elif now - at >= dt.timedelta(hours=BACKUP_STALE_HOURS):
+            out.append(f"no backup for {(now - at).total_seconds() / 3600:.0f} hours")
+    except (OSError, ValueError, TypeError, AttributeError):
+        pass
+    return out
+
+
 def problems(c, now=None):
     now = now or dt.datetime.now(_tz(c))
     found = _jobs(c)
@@ -459,12 +571,29 @@ def problems(c, now=None):
         lambda: check_photos(c),
         lambda: check_senses(c, now),
         lambda: check_delivery(c, now),
+        lambda: check_keeping(c, now),
     ):
         try:
             out += check()
         except Exception as exc:
             out.append(f"a health check itself failed: {exc}")
     return out
+
+
+def _record_healed(c, now, healed):
+    """What the watch mended, kept beside its state for Diagnostics: the last twenty."""
+    path = pathlib.Path(c.home) / "state" / "companion-watch-healed.jsonl"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        rows = (
+            path.read_text(encoding="utf-8").splitlines()[-19:] if path.exists() else []
+        )
+        rows.append(
+            json.dumps({"at": now.isoformat(timespec="seconds"), "done": healed})
+        )
+        atomic_write(path, "\n".join(rows) + "\n")
+    except OSError:
+        pass
 
 
 def _state_path(c):
@@ -491,6 +620,35 @@ def write_ambient(c, found, now):
     )
 
 
+def heal_keeping(c, now):
+    """Mend what keeping her memory can mend by itself, before anyone is told: copy the conversations the archive
+    missed, and commit a vault left with changes waiting. Both are what the vault commit job does every fifteen
+    minutes, so running them here is safe; it is how her memory recovers on its own when that job was paused or
+    failed for a while. Returns what was done (empty when nothing needed it)."""
+    done = []
+    found = check_keeping(c, now)
+    if any("conversation archive is behind" in p for p in found):
+        try:
+            import companion_archive as archive
+
+            copied = archive.update(c, now=now).get("copied", 0)
+            if copied:
+                done.append(f"copied {copied} message(s) the archive had missed")
+        except Exception:  # noqa: BLE001 -- reported below if it is still behind
+            pass
+    if any("the vault has changes waiting" in p for p in found):
+        try:
+            import companion_vault as vault
+
+            if vault.commit(
+                c, now=now, message="health watch: changes left waiting"
+            ).get("committed"):
+                done.append("committed the vault's waiting changes")
+        except Exception:  # noqa: BLE001
+            pass
+    return done
+
+
 def run(c, now=None, renotify=RENOTIFY_SECONDS, notify=None, record=True):
     """Check, and when `notify` is given, deliver an alert through it.
 
@@ -498,6 +656,12 @@ def run(c, now=None, renotify=RENOTIFY_SECONDS, notify=None, record=True):
     alert held for quiet hours or lost to a failed send is tried again next run.
     """
     now = now or dt.datetime.now(_tz(c))
+    try:
+        healed = heal_keeping(c, now)
+    except Exception:  # noqa: BLE001 -- mending is a bonus; the checks below still run
+        healed = []
+    if healed:
+        _record_healed(c, now, healed)
     found = problems(c, now)
     write_ambient(c, found, now)
     path = _state_path(c)

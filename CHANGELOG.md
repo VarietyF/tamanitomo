@@ -1,3 +1,272 @@
+## 3.33.1 — Comings and goings, built (2026-11-27)
+
+- **The release build passes where ffmpeg is absent.** `test_reading_is_refused_when_it_would_crowd_the_network`
+  now pins ffmpeg both ways (present: the bitrate and speech-model refusals; absent: the ffmpeg refusal) instead
+  of depending on the test machine, which failed the v3.33.0 build on the runner. The suite was rerun with
+  ffmpeg hidden from PATH. No code change.
+
+## 3.33.0 — Comings and goings (2026-11-27)
+
+- **She knows when you get home.** When a client's `where.json` says where the human came from (`from`,
+  `from_since`, written only on a real change, so a restarted bridge is never an arrival), her context gets a
+  "Comings and goings" line for 45 minutes: "got home at 17:40, after 9 hours out", "left home at 08:30". A
+  welcome home if she would say it anyway; never tracking, questioning or keeping score of where they go. Part of
+  the Your word sense.
+
+## 3.32.0 — It mends itself (2026-11-27)
+
+- **The health watch mends what keeping her memory can mend, before telling anyone**: conversations the
+  archive missed are copied, and a vault left with changes waiting is committed (the same work the vault
+  commit job does), so her memory recovers on its own after that job was paused or failing. The last twenty
+  mends are kept in `state/companion-watch-healed.jsonl`; whatever is still wrong after mending is reported
+  as before.
+- **A vault repo that knows no author can still commit.** One made by hand or restored from a backup without
+  `user.name`/`user.email` made every commit fail with "Author identity unknown", quietly; it now gets the
+  vault's own identity (an identity already set is left alone).
+
+## 3.31.1 — A backlog is not late (2026-11-27)
+
+- The health watch counts a chapter as overdue from when the story job arrived, not from the end of a month
+  long past: a companion whose history is just catching up is not behind.
+
+## 3.31.0 — Her memory, watched (2026-11-27)
+
+- **The health watch checks that her memory is still being kept**, every hour and without a model: the
+  conversation archive keeping up (nothing older than three hours missing), the vault committed (no changes
+  waiting twelve hours), last month's chapter written (five days' grace, when the story job exists), and a
+  backup that reports itself in `state/vault-backup-last.json` succeeding and recent (36 hours). A memory meant
+  to last decades fails quietly; now it says so like any other problem.
+- A touch says why it did not arrive: the bridge did not answer, or nothing of theirs was connected to show it
+  on (`companion_watchalong.device_send` returns where it went and why not).
+
+## 3.30.1 — Nothing optional can cost her a reply (2026-11-27)
+
+- The newer sections of her context (what is on screen, "Our story so far", Your word) catch anything at all,
+  so an odd file or a busy database leaves a section out rather than failing her reply; Your word treats an
+  unreadable `where.json` or an unexpected error as nothing to say.
+- Watching together picks up changed settings (where her words reach you) mid-film, not only at the next title.
+
+## 3.30.0 — Plex and Jellyfin, both (2026-11-27)
+
+- **Follow two media servers at once.** Settings → Awareness → "Also follow" adds a second server (a Jellyfin
+  beside a Plex, or the other way round) with its own account and token (kept privately in
+  `secrets/media-server-also.token`, never shown back; an empty address forgets it). Config `media_also`.
+- What is on, and what was finished, come from every server followed, each item tagged with its server (`source`,
+  `base`); a server that cannot be read leaves the others standing, and only none readable is an error. Her line
+  about what is on names the right server. Watching together follows the film on whichever server it plays, and
+  reads its subtitles, its stream and (on Jellyfin) its screen there. "Save and check" reports the second server
+  too.
+
+## 3.29.1 — Story view, tidier (2026-11-27)
+
+- The collapsed "Our story so far" is a slim bar, not a page-sized empty card, and Older and Newer step from the
+  chapter that holds the day (June is in "May to August"), never to the same chapter again.
+
+## 3.29.0 — Read your story (2026-11-27)
+
+- **Journal → Story.** A third view in the Journal shows the chapter of her memoir that holds the selected day's
+  month (a chapter that folded quiet months in, "May to August", answers for each of them), the year's chapter
+  when there is one, and "Our story so far" above them; Older and Newer step from chapter to chapter. A month
+  still being lived, or one too quiet for a chapter, says so. `GET /api/story` (each chapter's id, label, title,
+  the months it covers, its length) and `GET /api/story/{id}` (a chapter or `so-far`, without its signature).
+  Read-only.
+
+## 3.28.1 — One distinctive word is enough (2026-11-27)
+
+- A chapter line now answers with one distinctive word of the question (a word on three of her chapter
+  lines or fewer, and not an everyday one like "watch"), so "when did we watch Coraline" finds the month
+  that says "Coraline on the couch".
+
+## 3.28.0 — Recall that outlasts the database (2026-11-27)
+
+- **"When did we...?" finds the month.** `companion_recall` reads her chapters for an explicit question about
+  the past (up to three lines where the question's words meet, kind `her_chapter_summary`): her own account of
+  a month, a lead to when something happened rather than proof of a detail. Never for an automatic callback.
+- **The conversation archive stands in for the session store.** When Hermes's `state.db` is gone, moved or
+  unreadable, recall searches the human's own messages in the vault's conversation archive (newest month
+  first, inside the same time budget) and says so in its warnings, so years of conversation stay findable
+  through a migration or a lost database.
+- README: watching together, a memory built to last, one conversation wherever you talk, the little things.
+
+## 3.27.0 — A touch while you talk (2026-11-27)
+
+- **She can touch your watch in the middle of a conversation.** With a device bridge set, her context in a
+  conversation (never a scheduled run) offers `companion_outbox.py touch`: a nudge (three firm pulses, the
+  playful "oh stoppp"), a tap (a light tick) or a message (a soft double pulse) with up to 60 characters,
+  sent at once through the bridge rather than queued for the dispatcher, never counted against her outreach,
+  at most six an hour, logged in `touches.jsonl`. The line rides in the context's tail, so a long snapshot
+  never drops it.
+- Tests and tools are clean under Ruff's error checks too (unused imports and locals, shadowed imports).
+
+## 3.26.0 — Where you went, and the little things (2026-11-27)
+
+- **Your word knows where you went.** When a client writes `ambient/where.json` (a phone or wearable
+  bridge: a named place and times, never coordinates), arriving somewhere or leaving the house after a
+  goodnight counts as the evening going another way ("they got to the shop at 00:15"). Getting home never
+  does.
+- **Realism → Little things she notices.** On this day and Your word can be switched on and off in the
+  Realism panel (the same switches as Awareness → Sensors), and the panel says how far her story has got:
+  the months and years written and whether "Our story so far" is with her. `GET /api/realism/story`.
+
+## 3.25.1 — Your word, fewer false goodbyes (2026-11-27)
+
+- `plans` counts "have to go" and its kin as goodbye only when the phrase ends the thought ("I have to
+  go.", "gotta run, ttyl"), never "have to go with the other plan", "have to go to the plant" or "have
+  to go back to work": where someone is going next is not a goodbye, and chatting from there is an
+  ordinary day.
+
+## 3.25.0 — Your word (2026-11-27)
+
+- **She notices when the evening goes another way.** A new sense, `plans` (Settings → Awareness → Sensors,
+  "Your word"), reads what the human last said they were about to do (goodnight or going to bed, brb or
+  back in N minutes, gotta go or talk later) and, only when what followed does not match, gives her one
+  plain paragraph: more messages after goodnight on any channel, a game, a film finished or playing, music
+  on; still gone long after "right back", or back at last; still chatting an hour after "gotta go". Read
+  live at every turn (her context, priority 5), so "you said goodnight twenty minutes ago" is never fifteen
+  minutes late. A question, a negation, "I had a good night" at noon, the goodbye exchange itself and the
+  next morning are not mismatches. The guidance is to notice it the way a partner would, once and lightly,
+  never a lecture, a guilt trip or a reason to message them, and to believe their reason. English phrasing.
+- Chapters leave out lines written for a machine (test prompts, status tokens) along with secrets.
+
+## 3.24.0 — Chapters (2026-11-27)
+
+- **Our story, a month at a time, in her own words.** A new story job (daily at 09:40, on her reflection
+  model) has her write the month just ended as a chapter of her memoir of life with the human
+  (`story/<year>/<year>-<month>.md` in the vault), from the conversation archive's most memorable lines of
+  each day, the moments she kept, what she felt and what they watched; months with too little in them fold
+  into the next chapter. After a year ends, the year from its months; and from all of them
+  `story/so-far.md`, the whole story in under 300 words, which rides in her context (priority 6) so she
+  always knows the shape of their life together, and where to open a month when they ask about a time.
+  The job's pre-read (`companion_chapters.py preread`) prints the piece that is due or nothing at all, so
+  Hermes skips every day nothing is due; she saves each piece with her file tools and `check`s it (up to
+  three a run). The kit never rewrites a chapter; "so far" follows her edits. Lines that mention a
+  password, a key or a token are never material. Run Repair once to add the job.
+- **Silence is not speech.** A reply that is only Hermes's no-reply marker (`[SILENT]`, `NO_REPLY`, in any
+  case or spacing) is left out of the transcript, so it never shows in her context, her memory, the
+  archive or on this day.
+
+## 3.23.0 — Kept for good (2026-11-27)
+
+- **Every conversation, kept in the vault.** `companion_archive` copies each message between the two of you
+  (every channel the thread counts; never a scheduled job or a tool, and a game's context block left out)
+  into `conversations/<year>/<year>-<month>.jsonl` (the exact record) and `.md` (to read) in the vault,
+  append-only, under its own day. It runs inside the vault commit job, every fifteen minutes, with a cursor,
+  so a quiet run costs one small read and nothing new is ever written twice. The vault's git history and
+  backups carry it, so the conversations outlive Hermes's session database, a migration or a prune.
+- **Her feelings may show.** The feelings section now says, in so many words, that her feelings are hers to
+  show (delight, pride, being pleased, annoyance, a hurt she is not over, a short sulk, wanting closeness,
+  wanting distance) and that they change how she answers, within the kit's line: never punishing, keeping
+  score, demanding an apology or making the human earn her back.
+
+## 3.22.0 — A touch, and remembering (2026-11-27)
+
+- **A touch rather than a text.** With a device bridge (3.21.0), the outbox takes `"target": "watch"`:
+  up to 160 characters, words only, with a `"buzz"` of `tap` (a light touch, the wordless kind of
+  thinking of you), `message` or `nudge` (playful). The dispatcher hands it to the bridge instead of
+  Hermes, under every rule a message has (quiet hours, the daily cap, the closeness gates); a bridge
+  that does not take it is a failure, never a guess. Her outreach policy says so only when a bridge is
+  set (and is refreshed when it is), and a good morning or a goodnight may be one.
+- **On this day.** A new sense, `onthisday`: what the two of you had on today's date a month, three and
+  six months, and each year ago, from her own records (the human's most memorable line of that day,
+  films finished together, moments she wrote down, times she felt close, what she said while watching).
+  Furthest back first, at most four lines, file paths and setup talk left out, nothing at all on a day
+  with nothing true to say. Her context gives it a short section of its own; she may bring one up, once
+  and lightly.
+- **Being visibly awake lifts the quiet hours again.** The dispatcher looked for the human's last message
+  in `ambient/relationship-thread.json`, a name nothing writes (the thread sensor writes `thread.json`),
+  so a reply in the middle of the night was always held until morning; the scheduled jobs' "The thread"
+  section read the same missing name. Both read the real file now, the old name still counts, and the
+  tests write the file the sensor writes instead of the one that hid this.
+- **A game's context stays in the game.** A client may put context it gathered before the human's words
+  (a game add-on: the character, the zone, the quest log) in a "[Game, added automatically ...]" block.
+  Her other conversations, the feed, her memory and the thread now quote only the words; the conversation
+  it came in keeps the block.
+
+## 3.21.0 — Watching together, live (2026-11-27)
+
+- **She follows what you are watching, line by line.** While you play a film or an episode on your own
+  Plex or Jellyfin server, `companion_watchalong` (a thread per companion inside the app) follows its
+  dialogue in step with playback: a subtitle file the server hands out (Plex sidecars; any text track
+  on Jellyfin, which extracts embedded ones), the film's own embedded text track read with ffmpeg at
+  the film's pace from a little ahead of the playhead, or, with no text track at all, the film's sound
+  through faster-whisper in its own process. The playhead comes from the server every five seconds and
+  runs on between reports; a jump of more than fifteen seconds is a seek, and lines skipped over are
+  never reacted to. Reading the film is skipped above 20 Mbps, and the server's token reaches ffmpeg
+  through a 127.0.0.1 relay, never a command line.
+- **She knows the scene whenever you talk to her about it.** Her context while something plays has an
+  "On screen now" section: the title, where you are, the last minute of dialogue (nothing past the
+  playhead) and what she has said about it.
+- **And now and then she says something on her own.** Lines that land (a confession, a promise, a
+  proposal, a goodbye, a gasp in the hearing-impaired track) are scored without a model. At one that
+  clears the pace's bar she is asked, in a small call of her chat model, whether she would say anything
+  right now; silence is an answer. `watchalong`: off, quiet (only when you talk to her), moments,
+  occasional, commentary, or auto (occasional on a hosted model, commentary on a local one). Everything
+  she says is kept in `companion-life/watchalong.jsonl`.
+- **It reaches you where you are.** `watchalong_reach`, in order: where you last talked (a wearable that
+  keeps its own conversation through the app, or the chat), your watch, something you wear, Telegram,
+  or the TV itself (Jellyfin's on-screen message; Plex has none).
+- **A device bridge** (`device_bridge_url` + `device_bridge_token_file`): her short messages to your own
+  devices as `POST {text, kind: tap|message|nudge, surface, id}`. Settings → Realism, a new section,
+  has both, and a button that sends one test buzz.
+- **Jellyfin 12.** It turned the legacy token headers off by default; the viewing sense now sends the
+  whole `MediaBrowser` authorization form. A film named from its folder no longer shows its year twice.
+
+## 3.20.2 — One clock (2026-11-27)
+
+- **Her clock counts every place the human talks to her.** The thread (`companion_thread`: the
+  last message each way, the gap, the recent tail, the days the human wrote) read only
+  `telegram`, `cli`, `desktop`, `tui` and `discord` sessions. Hermes files the app's own chats as
+  one-shot runs and a game add-on's chat as an API conversation, so an evening's talk in the game
+  left her measuring the gap from the afternoon. That gap feeds her missing the human, the
+  reach-out decisions, the recent conversation the routines read and the rhythm she learns. The
+  thread's scope now also takes the conversations `companion_transcript` knows as the human's
+  (the app's workspace sessions and the API conversations named in `owner_api_conversations`,
+  with the transcripts they continue), cached on the store's version. Unnamed API conversations
+  and one-shot runs the app did not start stay out.
+- **A section whose age only ticked is not sent again.** Later turns carry only the sections whose
+  digest the conversation has not seen, but the lived state, the handoff and the feelings carry
+  their age ("confirmed 36 minutes ago", "4.32h"), so every turn re-sent them: 4,000 to 6,000
+  characters a message, kept in the history and read again by every later call. The digest now
+  reads ages by steps (10, 30 and 90 minutes; 3, 6, 12, 24 and 48 hours; then days), so a section
+  comes back when its age reaches the next step or anything else in it changes. The first turn
+  after updating sends those sections once more.
+
+## 3.20.1 — Every place by its name (2026-11-26)
+
+- **A device or app talking through the app's chat names its place.** Hermes files every chat sent
+  through `/api/chat` as a local session, so a voice front end keeping its own conversation there
+  and the app's own window were both "the app". `/api/chat` now takes `place`, one line of up to
+  60 characters ("the kitchen radio"). The app records it for that conversation before the turn
+  runs (`.tamanitomo-session-places.json` beside the session list, the newest hundred kept;
+  compression continuations keep the name). Her turn there is told where it is instead of being
+  called a terminal session, her other conversations quote those messages under that name, the
+  chat feed and search show it, and the app's window no longer picks that conversation up as its
+  latest.
+- **Named API conversations show their names on chat bubbles.** 3.20.0 put the name on search
+  results only; the bubbles of a conversation named in `owner_api_conversations` still read
+  "api_server".
+
+## 3.20.0 — One conversation, wherever you talk (2026-11-26)
+
+- **A conversation through the Hermes API can be yours.** A game add-on or a voice front end
+  talks to the companion through Hermes's API server, and those conversations counted as an
+  unknown caller's. So nothing said on Telegram or in the app reached them, and nothing said
+  there reached anywhere else: reached in a second place, she did not know the two of you had
+  talked that day. companion.json `owner_api_conversations` now names the API conversations that
+  are you, mapped to what she calls the place (`{"game-chat": "the game"}`). The name is the
+  `conversation` a client sends to `/v1/responses`, found read-only in Hermes's
+  `response_store.db` together with the transcripts Hermes compressed it from, or a key declared
+  with `X-Hermes-Session-Key`. Named conversations are quoted into the others and the others into
+  them, appear in the app's chat feed (search: Other apps), and count as your own words for her
+  memory. Unnamed API conversations stay out, as before. The compatibility check now writes and
+  reads a named conversation through Hermes's own store.
+- **Enough of the conversation to pick up mid-thread.** Each place now carries up to forty recent
+  messages from the others (was twelve), within 2% of the window up to 16,000 characters (was
+  4,000, which held five or six). It is sent with a conversation's first turn and again only when
+  something new was said elsewhere, so the cost follows moving between places, not every turn.
+- API conversations get their own conversation note: their app's instructions say where she is
+  and how replies are shown.
+
 ## 3.19.3 — A conversation in the app follows the model plan (2026-11-26)
 
 - **The app's chat follows a new model plan.** Hermes 0.23 keeps a local conversation on the model
