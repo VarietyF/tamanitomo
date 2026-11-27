@@ -64,6 +64,49 @@ def _get(url, timeout=TIMEOUT):
 
 
 # ---- weather -------------------------------------------------------------
+def homeassistant(c, now):
+    """Read-only Home Assistant presence sensor (e.g. person.martin)."""
+    url = getattr(c, "ha_url", "") or ""
+    token_file = getattr(c, "ha_token_file", "") or ""
+    person = getattr(c, "ha_person", "") or "person.martin"
+    if not url:
+        return None, Broken("homeassistant not configured (ha_url empty)")
+    token = ""
+    if token_file:
+        tf = pathlib.Path(token_file)
+        if tf.is_file():
+            token = tf.read_text(encoding="utf-8").strip()
+    if not token:
+        import os
+
+        token = os.environ.get("HASS_TOKEN") or os.environ.get("HA_TOKEN") or ""
+    if not token:
+        return None, Broken("homeassistant token missing or empty in ha_token_file")
+
+    endpoint = url.rstrip("/") + f"/api/states/{person}"
+    req = urllib.request.Request(
+        endpoint,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": USER_AGENT,
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        return None, Broken(f"Home Assistant returned HTTP {exc.code}: {exc.reason}")
+    except Exception as exc:
+        return None, Broken(f"Home Assistant connection failed: {exc}")
+
+    state = data.get("state", "unknown")
+    attrs = data.get("attributes", {})
+    friendly_name = attrs.get("friendly_name", c.human or "Martin")
+    summary = f"{friendly_name} is currently {state}."
+    return summary, {"state": state, "attributes": attrs, "entity_id": person}
+
+
 def weather(c, now):
     """wttr.in, which needs no key and understands a plain place name."""
     if not c.location:
@@ -636,6 +679,12 @@ def holidays(c, now):
 
 
 REGISTRY = {
+    "homeassistant": {
+        "fn": "homeassistant",
+        "needs": "a Home Assistant server and read-only token",
+        "blurb": "Read-only presence sensor for Home Assistant (e.g. person.martin), "
+        "detecting whether the human is home, away, or at a known zone without writing back.",
+    },
     "weather": {
         "fn": "weather",
         "needs": "a location",

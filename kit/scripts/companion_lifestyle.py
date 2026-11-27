@@ -402,6 +402,51 @@ def evolve(c, data, outfit, previous, closet, now):
     return result
 
 
+def weather_advice(c):
+    """Read ambient weather if available and return wardrobe guidance."""
+    weather_file = c.soul_dir / "ambient" / "weather.json"
+    if not weather_file.is_file():
+        for candidate in [
+            c.data / "ambient" / "weather.json",
+            c.home / "ambient" / "weather.json",
+        ]:
+            if candidate.is_file():
+                weather_file = candidate
+                break
+    if not weather_file.is_file():
+        return ""
+    try:
+        data = json.loads(weather_file.read_text(encoding="utf-8"))
+    except Exception:
+        return ""
+    temp_raw = data.get("temp_c")
+    if temp_raw is None:
+        return ""
+    try:
+        temp = float(temp_raw)
+    except (ValueError, TypeError):
+        return ""
+    desc = str(data.get("description") or "").lower()
+    advice = []
+    if temp <= 10 or any(w in desc for w in ("rain", "snow", "drizzle", "sleet")):
+        items = []
+        if temp <= 10:
+            items.append("warm knitwear/layers")
+        if any(w in desc for w in ("rain", "snow", "drizzle", "sleet")):
+            items.append("outerwear/coat or rain-appropriate boots")
+        detail = " and ".join(items) if items else "layers and a coat"
+        advice.append(
+            f"Weather is cold/wet ({temp:g}°C, {desc}); choose {detail} when dressing or going out."
+        )
+    elif temp >= 22:
+        advice.append(
+            f"Weather is warm ({temp:g}°C, {desc}); choose lighter clothing/breathable fabrics when dressing."
+        )
+    else:
+        advice.append(f"Weather is mild ({temp:g}°C, {desc}); dress comfortably in layers.")
+    return " ".join(advice)
+
+
 def render(c, now, scene=None):
     if not enabled(c):
         return ""
@@ -452,6 +497,9 @@ def render(c, now, scene=None):
             "Current items may stay on until changing; removed washable pieces need laundry: "
             + ", ".join(i["id"] for i in worn)
         )
+    w_advice = weather_advice(c)
+    if w_advice:
+        lines.append(f"Weather clothing guidance: {w_advice}")
     return "\n".join(lines)
 
 

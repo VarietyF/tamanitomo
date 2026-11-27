@@ -1160,7 +1160,7 @@ def build(c, payload=None, now=None, maintenance_notice="", seen=None, sent=None
                 amb.append(f"{p.stem}: {t}")
         if amb:
             parts.append(
-                (1, "[Ambient context]\n" + clip("\n".join(amb), b["ambient"]))
+                (7, "[Ambient context]\n" + clip("\n".join(amb), b["ambient"]))
             )
     elif (c.soul_dir / "ambient").is_dir() and any(
         (c.soul_dir / "ambient").glob("*.md")

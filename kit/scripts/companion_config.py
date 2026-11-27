@@ -424,6 +424,10 @@ class Companion:
     media_kind: str = "plex"  # plex | jellyfin
     media_user: str = ""
     media_token_file: str = ""
+    # Home Assistant instance for read-only presence and sensor integration
+    ha_url: str = ""
+    ha_token_file: str = ""
+    ha_person: str = ""
     # Which sensors this profile has switched on, by name.
     sensors: list = dataclasses.field(default_factory=list)
     # Per-job model choices, written by `tamanitomo models`. Empty means "whatever
@@ -482,6 +486,14 @@ class Companion:
             raise ValueError("media_user must be an account name, or empty")
         if not isinstance(self.media_token_file, str):
             raise ValueError("media_token_file must be a path, or empty")
+        if not isinstance(self.ha_url, str) or (
+            self.ha_url and not self.ha_url.startswith(("https://", "http://"))
+        ):
+            raise ValueError("ha_url must be an http(s) address, or empty")
+        if not isinstance(self.ha_token_file, str):
+            raise ValueError("ha_token_file must be a path, or empty")
+        if not isinstance(self.ha_person, str) or len(self.ha_person) > 100:
+            raise ValueError("ha_person must be an entity id, or empty")
         if not isinstance(self.adult_images, bool):
             raise ValueError("adult_images must be true or false")
         if self.adult_images and not self.explicit:

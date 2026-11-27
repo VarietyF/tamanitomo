@@ -105,6 +105,49 @@ def queue_note(c, text, audio_path, reason="", ttl_hours=4):
     }
 
 
+def hermes_stt(c, audio_path):
+    """Transcribe speech in an audio file using Hermes's configured STT provider."""
+    import os
+    import subprocess
+    import companion_platform as cp
+    from companion_gateway import _env_values
+
+    checkout = c.hermes_root / "hermes-agent"
+    python = cp.venv_executable(checkout)
+    if not python.is_file():
+        raise ValueError("Hermes Python is unavailable")
+    env = dict(os.environ, **_env_values(c.home))
+    env.update(HERMES_HOME=str(c.home), PYTHONPATH=str(checkout))
+    env.pop("HERMES_PROFILE", None)
+    run = subprocess.run(
+        [
+            str(python),
+            str(pathlib.Path(__file__).with_name("companion_voice_chat.py")),
+            "transcribe",
+        ],
+        input=json.dumps({"path": str(audio_path)}),
+        env=env,
+        cwd=checkout,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    reply = next(
+        (
+            json.loads(line.split("=", 1)[1])
+            for line in run.stdout.splitlines()
+            if line.startswith("COMPANION_AUDIO=")
+        ),
+        {},
+    )
+    if run.returncode or not reply.get("success"):
+        raise ValueError(
+            "Hermes STT failed: "
+            + str(reply.get("error") or run.stderr.strip()[-300:] or "no result")
+        )
+    return reply.get("transcript") or reply.get("text") or ""
+
+
 def hermes_tts(c, text, output_path):
     """Synthesize with Hermes's own text_to_speech tool, in Hermes's Python.
 
@@ -176,10 +219,14 @@ def synthesize(c, text, output_path=None):
     output_path = pathlib.Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     command = ((cfg.get("tts") or {}).get("providers") or {}).get(provider) or {}
-    if command.get("type") == "command":
-        # A command provider is Hermes's to run. The adapter only knows engines it
-        # starts itself, so it would load the provider's engine in-process (for
-        # pockettts, a fresh model per note) instead of running the command.
+    if command.get("type") == "command" or provider not in (
+        "pockettts",
+        "audio8",
+        "chatterbox",
+        "qwen3tts",
+    ):
+        # A command provider, or any provider not handled by the local in-process adapter
+        # (such as edge, openai, elevenlabs, piper, etc.), is synthesized by Hermes.
         output_path = hermes_tts(c, text, output_path)
     else:
         adapter.synthesize(c.home, provider, text, output_path)
@@ -264,6 +311,8 @@ def main():
     cl.add_argument("--audio", required=True)
     cl.add_argument("--transcript", required=True)
     cl.add_argument("--i-have-permission", action="store_true", dest="confirmed")
+    st = s.add_parser("transcribe", help="transcribe an audio file using configured STT")
+    st.add_argument("--audio", type=pathlib.Path, required=True)
     a = p.parse_args()
     c = cc.load(a.home)
     if a.cmd == "status":
@@ -277,6 +326,8 @@ def main():
         if not text:
             raise ValueError("either --file or --text with non-empty content required")
         out = send_note(c, text, a.reason, ttl_hours=a.ttl_hours)
+    elif a.cmd == "transcribe":
+        out = {"transcript": hermes_stt(c, a.audio)}
     else:
         out = set_clone(c, a.audio, a.transcript, a.confirmed)
     print(json.dumps(out, ensure_ascii=False, indent=2))
