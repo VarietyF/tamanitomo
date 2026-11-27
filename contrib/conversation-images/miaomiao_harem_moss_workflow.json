@@ -10,7 +10,7 @@
   "width": 1024,
   "height": 1536,
   "steps": 40,
-  "cfg": 3.5,
+  "cfg": 3.0,
   "denoise": 1.0,
   "seed": -1,
   "parts": {
@@ -104,7 +104,7 @@
           0
         ],
         "steps": 40,
-        "cfg": 3.5,
+        "cfg": 3.0,
         "sampler_name": "euler",
         "scheduler": "normal",
         "denoise": 1.0,
@@ -418,7 +418,7 @@
       "class_type": "SkipLayerGuidanceDiTSimple",
       "inputs": {
         "model": [
-          "10",
+          "11",
           0
         ],
         "single_layers": "22",
@@ -436,6 +436,18 @@
         ],
         "shift": 5.0,
         "sampling": "flow"
+      }
+    },
+    "11": {
+      "class_type": "AUSBOSS_NODES_LoraLoader",
+      "inputs": {
+        "loras": "[{\"name\": \"Moss/SKP_mossv2.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+        "trigger_separator": ", ",
+        "on_missing": "skip",
+        "model": [
+          "10",
+          0
+        ]
       }
     }
   }

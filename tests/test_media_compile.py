@@ -289,13 +289,28 @@ class UndressedPhotoTests(unittest.TestCase):
     def test_miaomiao_workflow_uses_auraflow_not_sd3_shift(self):
         wf_path = pathlib.Path(__file__).resolve().parents[1] / "contrib/conversation-images/miaomiao_harem_moss_workflow.json"
         preset = json.loads(wf_path.read_text())
+        self.assertEqual(preset["cfg"], 3.0)
         wf = preset["workflow"]
         classes = {n["class_type"] for n in wf.values()}
         self.assertNotIn("ModelSamplingSD3", classes)
         self.assertEqual(wf["shift"]["class_type"], "ModelSamplingAuraFlow")
         self.assertEqual(wf["shift"]["inputs"]["shift"], 5.0)
         self.assertEqual(wf["shift"]["inputs"]["sampling"], "flow")
-        self.assertNotIn("11", wf)
+        self.assertEqual(wf["shift"]["inputs"]["model"], ["slg", 0])
+        self.assertEqual(wf["slg"]["inputs"]["model"], ["11", 0])
+        self.assertEqual(wf["11"]["class_type"], "AUSBOSS_NODES_LoraLoader")
+        self.assertEqual(wf["11"]["inputs"]["model"], ["10", 0])
+        self.assertEqual(wf["39_29"]["inputs"]["cfg"], 3.0)
+        loras = json.loads(wf["11"]["inputs"]["loras"])
+        self.assertEqual(len(loras), 1)
+        self.assertEqual(loras[0]["name"], "Moss/SKP_mossv2.safetensors")
+        self.assertEqual(loras[0]["strength"], 1.0)
+        self.assertTrue(loras[0]["enabled"])
+        compiled = media.compile(self.c, draft=preset)
+        compiled_loras = json.loads(compiled["workflow"]["11"]["inputs"]["loras"])
+        self.assertEqual(compiled_loras[0]["name"], "Moss/SKP_mossv2.safetensors")
+        self.assertEqual(compiled_loras[0]["strength"], 1.0)
+        self.assertTrue(compiled_loras[0]["enabled"])
 
 if __name__ == "__main__":
     unittest.main()
