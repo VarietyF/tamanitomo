@@ -1,4 +1,43 @@
-Tamanitomo 3.18.0: lighter requests, sized for the model reading them.
+Tamanitomo 3.19.3: the app's chat follows your model plan.
+
+- **New models reach the app's chat.** After you changed models, a conversation kept going in the
+  app, or on a device that talks to your companion through it, went on answering from the model it
+  started on. Now your next message there continues in a fresh conversation on the new model, with
+  your recent messages carried over.
+
+No Repair needed for this update.
+
+Previous: 3.19.2 the note you mean, not the first one that matches.
+
+- **Better finds.** When you bring something up, the note from her archive that comes back is the
+  one about it, and everyday words like "photo" or "favorite" no longer pull in unrelated notes.
+
+No Repair needed for this update.
+
+Previous: 3.19.1 her archived note keeps a place.
+
+- **What you mention, found.** When something you bring up is in her archive, that note now always
+  comes back with the rest, instead of being crowded out by your messages about it.
+
+No Repair needed for this update.
+
+Previous: 3.19.0 short memory in view, the rest a look away.
+
+- **She keeps the relationship in view.** When her memory fills, old working notes (servers,
+  settings, file paths) go to the archive first; what matters about the two of you stays.
+- **She looks up what you mention.** If you bring up something that has moved to her archive, she
+  finds it before answering instead of saying she does not know.
+
+No Repair needed for this update.
+
+Previous: 3.18.1 a repair she means to record is recorded.
+
+- **Making up counts.** When she tried to record that a let-down had been mended, the record was
+  refused over a field name and lost. It now accepts the names she uses and explains itself.
+
+No Repair needed for this update.
+
+Previous: 3.18.0 lighter requests, sized for the model reading them.
 
 - **No pile-up after a restart.** After the gateway restarted, every old context snapshot in a
   conversation was sent again with each message. Now only the newest one is, as intended.

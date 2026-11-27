@@ -1,3 +1,62 @@
+## 3.19.3 — A conversation in the app follows the model plan (2026-11-26)
+
+- **The app's chat follows a new model plan.** Hermes 0.23 keeps a local conversation on the model
+  it started with: `--resume` runs the launch policy frozen at its first message. So after a new
+  plan, the workspace chat, and any client that keeps one conversation going through `/api/chat`,
+  still answered from the old model, or from an exhausted account's fallbacks, while Telegram had
+  moved on. The chat now reads the model a conversation is locked to (Hermes's
+  `gateway.local_policy.v1:<session>` record in state.db, read-only). When that differs from the
+  model config.yaml starts a new conversation on, it continues in a fresh conversation on the
+  plan, and the continuity hook's cross-channel handoff quotes the recent messages into it. The
+  reply says so (`moved`), the chat dock shows it, and the Models page's Apply note mentions it.
+  A store without the record (older Hermes) resumes as before; the compatibility check now
+  watches the key.
+
+## 3.19.2 — The note he means, not the first one that matches (2026-11-26)
+
+- **Topic callbacks bring back the archived note he means.** Measured on a live archive of 1,210
+  lines: a question about one gadget's button brought back a different gadget's note, and
+  questions about a photo or a favorite character brought back unrelated notes that shared
+  everyday words. Now the best two archived lines come back, not the first two found; hyphenated
+  words match by their parts ("voice-note" is "voice note"); everyday words ("photo", "favorite",
+  "show", "working") do not count toward a match; and one word is enough only when it is specific
+  to a note or two. Tested on the same archive: questions about particular drives, a device's
+  button and a laptop bring back their own notes, and everyday questions bring back none.
+
+## 3.19.1 — Her archived note keeps a place (2026-11-26)
+
+- **A topic callback keeps a place for her archived note.** The facts and his own messages on a
+  topic often scored higher than her archived note about it and filled the two places, so the one
+  part she could not otherwise see was the part left out. When an archived note matches, it now
+  takes the last place.
+
+## 3.19.0 — Short memory in view, the rest a look away (2026-11-26)
+
+- **The relationship stays in her always-loaded memory; working notes move first.** When a memory
+  file nears its cap the archiver moved the oldest entries, whatever they were, so how someone
+  likes to be addressed or what a ring means to them could leave her view before a server's port
+  did. Now entries that are not working notes (two or more paths, hosts, ports, versions or
+  settings) are kept first, newest first, then working notes while there is room. Nothing is
+  deleted: archived entries stay in the vault's memory archive.
+- **What he raises, she looks for.** A topic callback, the automatic check of what a message
+  mentions, now also reads her archived memory, not only facts and recent messages. Two of the
+  message's words must meet on one line, and at most two such notes come back, so a passing word
+  does not pull in an unrelated one. Her continuity rules also say it plainly: the loaded memory
+  is the short version, and something mentioned that she does not see is to be looked up before
+  she answers.
+- **A curated tidy.** `companion_memory.py list` shows each entry with its number and whether it
+  counts as a working note; `archive --file NAME --move 3,7,12 --apply` archives exactly those,
+  through the same transaction (never the last entry of a file).
+
+## 3.18.1 — A repair she means to record is recorded (2026-11-26)
+
+- **Recording that a hurt was mended works the way she tries it.** A repair names the rupture it
+  mends in `related`. She wrote the rupture's id under another name, was refused twice with
+  "Choose a recorded rupture for repair", and the repair she meant to record was lost. A repair or
+  correction now also accepts the id as `rupture`, `rupture_id`, `repairs`, `corrects`,
+  `experience` or `target`; takes its topic from what it repairs, so none is required; and a
+  refusal names the field and lists the recent ruptures with their ids.
+
 ## 3.18.0 — Lighter requests after a restart, sized for the model reading them (2026-11-26)
 
 - **The context engine works again after a gateway restart.** It replays only the newest
