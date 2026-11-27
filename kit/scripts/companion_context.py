@@ -1083,7 +1083,7 @@ def build(c, payload=None, now=None, maintenance_notice="", seen=None, sent=None
                             else ""
                         )
                     )
-                parts.append((6, "\n".join(lines)))
+                parts.append((8, "\n".join(lines)))
         except (OSError, ValueError, KeyError, ImportError):
             pass
 
