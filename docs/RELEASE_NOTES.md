@@ -1,4 +1,30 @@
-Tamanitomo 3.33.1: comings and goings, built.
+Tamanitomo 3.36.0: her far memory.
+
+- **She can find what you said long ago, not just lately.** When you ask her about something from months back,
+  her search no longer gets crowded out by recent messages that share one ordinary word with it. On a real
+  history it went from finding fewer than half of those old lines to finding all of them.
+- **Her memory is now tested every week**: a few things you said a month or more ago are looked up the way she
+  looks things up, and the health watch tells you if she starts missing them.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.35.0 a touch, now and then.
+
+- **With a watch connected, she can think of you as a touch**: once in a while, a light tap on your wrist with a
+  few words of hers, when she is really thinking of you. It counts like any message she sends first, and never
+  comes during quiet hours or (if your watch tells her) while you sleep. Run Repair once to turn it on.
+
+From 3.24.0, no Repair is needed for anything else. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.34.0 their sleep.
+
+- **If a watch or wearable tells her when you sleep**, her messages wait until you are up (a lie-in or a nap
+  too), and her good morning can arrive when you really wake rather than at a set hour. She knows how you slept.
+  Settings -> Realism -> Little things -> Their sleep. Without such a device nothing changes.
+
+From 3.24.0, no Repair is needed. Updating from 3.23 or earlier, run Repair once.
+
+Previous: 3.33.1 comings and goings, built.
 
 - Nothing changes in how she works: one of the checks run before a release no longer depends on the
   machine running it, so this release could be built. Everything in 3.20 to 3.33 below arrives with it.
