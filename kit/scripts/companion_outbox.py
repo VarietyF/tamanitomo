@@ -99,6 +99,40 @@ OPENER_REPEATS = 3
 OPENER_WINDOW = 10
 EARLIER_SHOWN = 8
 
+RITUAL_GREETINGS = {
+    "morning": (
+        "morning",
+        "good morning",
+        "good mornin",
+        "mornin",
+        "wake up",
+        "waking up",
+        "rise and shine",
+    ),
+    "night": (
+        "good night",
+        "goodnight",
+        "good-night",
+        "sleep well",
+        "sweet dreams",
+    ),
+}
+GREETING_SUPPRESSION_HOURS = 8
+
+
+def _greeting_ritual(body):
+    """Return 'morning' or 'night' if body contains ritual greeting phrases."""
+    clean = re.sub(r"[^\w\s]", " ", (body or "").lower())
+    words = clean.split()
+    if not words:
+        return None
+    joined = " ".join(words)
+    for ritual, phrases in RITUAL_GREETINGS.items():
+        for phrase in phrases:
+            if re.search(r"\b" + re.escape(phrase) + r"\b", joined):
+                return ritual
+    return None
+
 
 def _tz(c):
     try:
@@ -161,6 +195,37 @@ def queue(c, entry, now=None):
         again = repeats(c, body, now, history)
         if again:
             raise ValueError(again)
+
+        # Proposal 2: Consolidate quiet-hours pending queue entries so redundant morning greetings/photos
+        # supersede or drop cleanly.
+        try:
+            import companion_outreach as outreach
+
+            if outreach.in_quiet_hours(c, now):
+                if kind == "image":
+                    for prior in waiting:
+                        if prior.get("content") == "image":
+                            try:
+                                qat = dt.datetime.fromisoformat(prior.get("queued_at", ""))
+                                if qat.tzinfo is None:
+                                    qat = qat.replace(tzinfo=tz)
+                                if outreach.in_quiet_hours(c, qat):
+                                    mark(c, prior["id"], "withheld", "superseded by fresher morning photo", now=now)
+                            except Exception:
+                                pass
+                elif _greeting_ritual(body) == "morning":
+                    for prior in waiting:
+                        if prior.get("content") != "image" and _greeting_ritual(prior.get("body")) == "morning":
+                            try:
+                                qat = dt.datetime.fromisoformat(prior.get("queued_at", ""))
+                                if qat.tzinfo is None:
+                                    qat = qat.replace(tzinfo=tz)
+                                if outreach.in_quiet_hours(c, qat):
+                                    mark(c, prior["id"], "withheld", "superseded by fresher morning greeting", now=now)
+                            except Exception:
+                                pass
+        except Exception:
+            pass
         row = {
             "id": entry.get("id")
             or "msg-"
@@ -214,6 +279,18 @@ def repeats(c, body, now=None, history=None):
     said = _said(fold(c) if history is None else history, now, tz)
     if not said:
         return None
+    # Proposal 4: Short-greeting ritual keyword detection with 8-hour suppression window
+    ritual = _greeting_ritual(body)
+    if ritual:
+        window = dt.timedelta(hours=GREETING_SUPPRESSION_HOURS)
+        for at, entry in said:
+            if dt.timedelta(0) <= now - at <= window:
+                if _greeting_ritual(entry.get("body")) == ritual:
+                    return (
+                        f"you already sent a {ritual} greeting at {at.astimezone(tz):%H:%M}: "
+                        f'"{entry.get("body", "")[:120]}". Wait before greeting again.'
+                    )
+
     names = {
         str(n).casefold()
         for n in [getattr(c, "human", ""), getattr(c, "agent", "")]

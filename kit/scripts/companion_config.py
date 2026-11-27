@@ -346,6 +346,9 @@ class Companion:
     # Hard cap on unprompted messages per day, enforced by companion_outreach
     # without consulting a model. 0 means the user chose not to limit it.
     outreach_per_day: int = 3
+    # Minimum spacing in minutes between unprompted messages, enforced by
+    # companion_dispatch. 0 disables spacing cooldown.
+    outreach_spacing_minutes: int = 90
     # Where the human lives, in whatever form a weather service understands
     # ("Raleigh, NC"). Empty means the weather and daylight sensors stay silent
     # rather than guessing a location.
@@ -675,6 +678,13 @@ class Companion:
         ):
             raise ValueError(
                 "outreach_per_day must be a whole number of messages, 0 for no limit"
+            )
+        if (
+            not isinstance(self.outreach_spacing_minutes, int)
+            or not 0 <= self.outreach_spacing_minutes <= 1440
+        ):
+            raise ValueError(
+                "outreach_spacing_minutes must be a whole number of minutes between 0 and 1440"
             )
         if not isinstance(self.soul_in_vault, bool):
             raise ValueError("soul_in_vault must be true or false")

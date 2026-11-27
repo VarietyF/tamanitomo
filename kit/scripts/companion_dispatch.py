@@ -133,6 +133,20 @@ def verdict(c, entry, now):
     # The quiet-hours bypass is exactly that. The daily cap still applies, because
     # a cap the user set is not a bedtime and being awake does not raise it.
     urgent = entry.get("priority") == "high" or awake
+    # Proposal 3: Minimum spacing cooldown between unprompted messages
+    spacing = int(getattr(c, "outreach_spacing_minutes", 90) or 0)
+    if spacing and not urgent:
+        recent = outbox.sent_recently(c, now, hours=24, limit=1)
+        if recent:
+            last_at, last_entry = recent[-1]
+            elapsed = (now - last_at).total_seconds() / 60
+            if elapsed < spacing:
+                wait_left = int(spacing - elapsed)
+                return {
+                    "action": "hold",
+                    "reason": f"spacing cooldown: sent {int(elapsed)}m ago; wait {wait_left}m",
+                    "urgent": False,
+                }
     decision = outreach.decide(c, now, urgent=urgent)
     if not decision["allowed"]:
         # A cap reached today is a hold, not a drop: it may still be in time
@@ -361,6 +375,64 @@ def _outcome(result):
     }
 
 
+
+def consolidate_quiet_hours_backlog(c, now, run_id="consolidate"):
+    """Cap quiet-hours backlog release to at most 1 greeting and at most 1 photo."""
+    if outreach.in_quiet_hours(c, now):
+        return []
+    waiting = outbox.waiting(c, now)
+    tz = _tz(c)
+    qh_entries = []
+    for e in waiting:
+        try:
+            qat = dt.datetime.fromisoformat(e.get("queued_at", ""))
+            if qat.tzinfo is None:
+                qat = qat.replace(tzinfo=tz)
+            if outreach.in_quiet_hours(c, qat):
+                qh_entries.append((qat, e))
+        except Exception:
+            continue
+    if not qh_entries:
+        return []
+
+    qh_entries.sort(key=lambda x: x[0])
+    photos = [e for _, e in qh_entries if e.get("content") == "image"]
+    greetings = [
+        e
+        for _, e in qh_entries
+        if e.get("content") != "image"
+        and (
+            outbox._greeting_ritual(e.get("body")) == "morning"
+            or "morning" in (e.get("reason") or "").lower()
+        )
+    ]
+
+    withheld = []
+    if len(photos) > 1:
+        for p in photos[:-1]:
+            outbox.mark(
+                c,
+                p["id"],
+                "withheld",
+                "quiet-hours backlog cap: only 1 morning photo is released",
+                now=now,
+            )
+            withheld.append(p["id"])
+
+    if len(greetings) > 1:
+        for g in greetings[:-1]:
+            outbox.mark(
+                c,
+                g["id"],
+                "withheld",
+                "quiet-hours backlog cap: only 1 morning greeting is released",
+                now=now,
+            )
+            withheld.append(g["id"])
+
+    return withheld
+
+
 def recover(c, run_id, now):
     """Resolve attempts a dispatcher that no longer holds the run lock left mid-way (table
     7.3). Only called while THIS run holds the run lock, which is what proves the earlier
@@ -440,6 +512,7 @@ def run(c, now=None, send=True):
 def _run_locked(c, now, send):
     run_id = secrets.token_hex(8)
     recovered = recover(c, run_id, now)
+    consolidate_quiet_hours_backlog(c, now, run_id=run_id)
     handled = []
 
     def step(ident, status, attempt, expect, **extra):

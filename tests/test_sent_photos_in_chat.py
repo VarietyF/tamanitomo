@@ -68,6 +68,19 @@ class SentPhotoTests(unittest.TestCase):
         self.assertIn("Got rained on and now I'm at the table with coffee.", out)
         self.assertIn("It showed: Coffee at the kitchen table", out)
 
+    def test_the_conversation_knows_text_outreach_went_out(self):
+        entry = outbox.queue(
+            self.c,
+            {
+                "kind": "text",
+                "body": "good morning, robin... coffee time",
+            },
+            NOW - dt.timedelta(minutes=10),
+        )["entry"]
+        outbox.mark(self.c, entry["id"], "sent", "ok", NOW - dt.timedelta(minutes=9))
+        out = self.build("telegram")
+        self.assertIn("good morning, robin... coffee time", out)
+
     def test_routines_keep_their_own_already_sent_list(self):
         self.assertNotIn("Photos you sent Robin", self.build("cron"))
 

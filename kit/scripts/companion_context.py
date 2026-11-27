@@ -1060,23 +1060,22 @@ def build(c, payload=None, now=None, maintenance_notice="", seen=None, sent=None
         try:
             import companion_outbox
 
-            photos = [
-                (at, e)
-                for at, e in companion_outbox.sent_recently(c, now, hours=24, limit=12)
-                if e.get("content") == "image"
-            ][-4:]
-            if photos:
+            recent_outreach = list(companion_outbox.sent_recently(c, now, hours=24, limit=12))[-6:]
+            if recent_outreach:
                 lines = [
                     f"[Photos you sent {c.human} in the last day. In this conversation they show "
-                    "only as their captions, but the pictures went with them]"
+                    "only as their captions, but the pictures went with them; recent messages you sent are also listed here]"
                 ]
-                for at, e in photos:
-                    shown = sent_photo_scene(c, e)
+                for at, e in recent_outreach:
+                    content_kind = e.get("content", "text")
+                    is_image = content_kind == 'image'
+                    shown = sent_photo_scene(c, e) if is_image else None
                     body = " ".join(str(e.get("body") or "").split())
                     # A plain cut: clip()'s "read source" note means nothing inside a quote.
                     caption = body if len(body) <= 220 else body[:219].rstrip() + "…"
+                    tag = " [photo]" if is_image else ""
                     lines.append(
-                        f'- {at.astimezone(tz):%a %H:%M}: "{caption}"'
+                        f'- {at.astimezone(tz):%a %H:%M}{tag}: "{caption}"'
                         + (f" It showed: {shown}" if shown else "")
                         + (
                             " (sending was not confirmed)"

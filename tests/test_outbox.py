@@ -46,6 +46,7 @@ class OutboxFixture(unittest.TestCase):
             quiet_start="23:00",
             quiet_end="08:00",
             outreach_per_day=2,
+            outreach_spacing_minutes=0,
         )
         self.c.life.mkdir(parents=True, exist_ok=True)
         past_just_met(self)
@@ -814,3 +815,73 @@ class UnconfirmedPhotoTests(unittest.TestCase):
             outbox.render_sent(c, now),
             "- Mon 14:45 image: Here it is." + outbox.UNCONFIRMED,
         )
+
+
+class SpacingAndRitualTests(OutboxFixture):
+    """Test 90-min spacing cooldown, short-greeting repeat guard, and quiet-hours backlog cap."""
+
+    def test_short_morning_greeting_is_refused_if_already_greeted_within_8_hours(self):
+        self.q(body="good morning, Alex... having some tea", now=self.day)
+        with self.assertRaisesRegex(ValueError, "you already sent a morning greeting"):
+            self.q(body="morning... ☕️", now=self.day + dt.timedelta(seconds=10))
+
+    def test_morning_greeting_after_8_hours_is_permitted(self):
+        self.q(body="good morning, Alex... having some tea", now=self.day)
+        res = self.q(body="morning... ☕️", now=self.day + dt.timedelta(hours=9))
+        self.assertEqual(res["status"], "queued")
+
+    def test_short_goodnight_within_8_hours_is_refused(self):
+        self.q(body="Good night, sleep well ❤️", now=self.evening)
+        with self.assertRaisesRegex(ValueError, "you already sent a night greeting"):
+            self.q(body="sleep well ❤️", now=self.evening + dt.timedelta(minutes=30))
+
+    def test_spacing_cooldown_holds_unprompted_sends_within_interval(self):
+        self.c.outreach_spacing_minutes = 90
+        self.q(body="first thought", now=self.day)
+        self.q(body="second thought", now=self.day)
+        # First send succeeds
+        with patch.object(dispatch, "deliver", return_value=(True, "sent")):
+            res1 = dispatch.run(self.c, self.day)
+        self.assertEqual(res1["handled"][0]["action"], "sent")
+        # Second send 15 minutes later is held by spacing cooldown
+        res2 = dispatch.run(self.c, self.day + dt.timedelta(minutes=15))
+        self.assertEqual(res2["handled"][0]["action"], "hold")
+        self.assertIn("spacing cooldown", res2["handled"][0]["reason"])
+
+    def test_spacing_cooldown_allows_sends_after_interval_passes(self):
+        self.c.outreach_spacing_minutes = 90
+        self.q(body="first thought", now=self.day)
+        self.q(body="second thought", now=self.day)
+        with patch.object(dispatch, "deliver", return_value=(True, "sent")):
+            dispatch.run(self.c, self.day)
+            res2 = dispatch.run(self.c, self.day + dt.timedelta(minutes=95))
+        self.assertEqual(res2["handled"][0]["action"], "sent")
+
+    def test_urgent_message_bypasses_spacing_cooldown(self):
+        self.c.outreach_spacing_minutes = 90
+        self.q(body="first thought", now=self.day)
+        with patch.object(dispatch, "deliver", return_value=(True, "sent")):
+            dispatch.run(self.c, self.day)
+            # Queue urgent message 15 minutes later (during 90m cooldown)
+            self.q(body="urgent update", priority="high", now=self.day + dt.timedelta(minutes=15))
+            res2 = dispatch.run(self.c, self.day + dt.timedelta(minutes=15))
+        self.assertEqual(res2["handled"][0]["action"], "sent")
+
+    def test_quiet_hours_backlog_consolidation_caps_greetings_and_photos(self):
+        # Queue 2 morning photos and 2 greetings during quiet hours
+        img1 = self.c.vault / "p1.png"
+        img2 = self.c.vault / "p2.png"
+        img1.write_bytes(b"png")
+        img2.write_bytes(b"png")
+        # In quiet hours:
+        t1 = dt.datetime(2026, 9, 11, 5, 0, tzinfo=OUTBOX_TZ)
+        t2 = dt.datetime(2026, 9, 11, 6, 0, tzinfo=OUTBOX_TZ)
+        self.q(kind="image", body="dawn photo 1", media_path=str(img1), now=t1)
+        self.q(kind="image", body="morning book photo", media_path=str(img2), now=t2)
+        # When morning quiet hours end (08:01):
+        wake = dt.datetime(2026, 9, 11, 8, 1, tzinfo=OUTBOX_TZ)
+        withheld = dispatch.consolidate_quiet_hours_backlog(self.c, wake)
+        waiting = outbox.waiting(self.c, wake)
+        photos_waiting = [e for e in waiting if e.get("content") == "image"]
+        self.assertEqual(len(photos_waiting), 1)
+        self.assertEqual(photos_waiting[0]["body"], "morning book photo")
