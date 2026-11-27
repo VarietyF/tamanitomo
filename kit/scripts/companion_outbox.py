@@ -131,8 +131,10 @@ RITUAL_GREETINGS = {
 GREETING_SUPPRESSION_HOURS = 8
 
 
-def _greeting_ritual(body):
-    """Return 'morning' or 'night' if body contains ritual greeting phrases."""
+def _greeting_ritual(body, now=None):
+    """Return morning or night if body contains ritual greeting phrases."""
+    if not body or re.search(r"\(\d+\)$", body.strip()):
+        return None
     clean = re.sub(r"[^\w\s]", " ", (body or "").lower())
     words = clean.split()
     if not words:
@@ -222,7 +224,7 @@ def queue(c, entry, now=None):
                 and prior.get("body", "").strip() == body.strip()
             ):
                 return {"written": False, "entry": prior}
-        again = repeats(c, body, now, history)
+        again = repeats(c, body, now, history) if priority not in ('high', 'urgent') else None
         if again:
             raise ValueError(again)
 
@@ -381,7 +383,7 @@ def repeats(c, body, now=None, history=None):
     if not said:
         return None
     # Proposal 4: Short-greeting ritual keyword detection with 8-hour suppression window
-    ritual = _greeting_ritual(body)
+    ritual = _greeting_ritual(body, now)
     if ritual:
         window = dt.timedelta(hours=GREETING_SUPPRESSION_HOURS)
         for at, entry in said:
