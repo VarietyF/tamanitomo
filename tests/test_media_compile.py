@@ -286,5 +286,16 @@ class UndressedPhotoTests(unittest.TestCase):
         self.assertEqual(media.compile(self.c, category="anime")["preset"]["id"], "moss-miaomiao")
 
 
+    def test_miaomiao_workflow_uses_auraflow_not_sd3_shift(self):
+        wf_path = pathlib.Path(__file__).resolve().parents[1] / "contrib/conversation-images/miaomiao_harem_moss_workflow.json"
+        preset = json.loads(wf_path.read_text())
+        wf = preset["workflow"]
+        classes = {n["class_type"] for n in wf.values()}
+        self.assertNotIn("ModelSamplingSD3", classes)
+        self.assertEqual(wf["shift"]["class_type"], "ModelSamplingAuraFlow")
+        self.assertEqual(wf["shift"]["inputs"]["shift"], 5.0)
+        self.assertEqual(wf["shift"]["inputs"]["sampling"], "flow")
+        self.assertNotIn("11", wf)
+
 if __name__ == "__main__":
     unittest.main()

@@ -428,13 +428,14 @@
       }
     },
     "shift": {
-      "class_type": "ModelSamplingSD3",
+      "class_type": "ModelSamplingAuraFlow",
       "inputs": {
         "model": [
           "slg",
           0
         ],
-        "shift": 5.0
+        "shift": 5.0,
+        "sampling": "flow"
       }
     }
   }
