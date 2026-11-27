@@ -1351,12 +1351,15 @@ def scaffold(c, ans, report, soul_mode="create", raw=None):
             backup.write_text(c.soul.read_text(encoding="utf-8"), encoding="utf-8")
             report.append(f"  SOUL.md: replaced (previous saved to {backup})")
         write(c.soul, soul_text, overwrite=True)
-    for tmpl, dest in (
+    tmpls = [
         ("PROTOCOL.md.tmpl", c.life / "PROTOCOL.md"),
         ("routine.json.tmpl", c.life / "routine.json"),
         ("PRESENCE.md.tmpl", c.life / "PRESENCE.md"),
         ("ActiveContext.md.tmpl", c.soul_dir / "ActiveContext.md"),
-    ):
+    ]
+    if getattr(c, "pronoun_set", "she") == "she" and getattr(c, "agent_type", "companion") == "companion":
+        tmpls.append(("wardrobe.json.tmpl", c.life / "wardrobe.json"))
+    for tmpl, dest in tmpls:
         write(dest, cr.render_template(tmpl, m))
     try:
         import companion_lifestyle

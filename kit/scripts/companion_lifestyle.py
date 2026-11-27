@@ -1232,6 +1232,17 @@ def seed(c, palette="auto", refresh=False):
     from companion_platform import atomic_write, file_lock
 
     items = build_starter_wardrobe(c, palette)
+    is_she = getattr(c, "pronoun_set", "she") == "she"
+    agent_type = getattr(c, "agent_type", "companion")
+    if is_she and agent_type == "companion":
+        tmpl_path = pathlib.Path(__file__).resolve().parent.parent / "templates" / "wardrobe.json.tmpl"
+        if tmpl_path.exists():
+            try:
+                catalog = json.loads(tmpl_path.read_text(encoding="utf-8")).get("items", [])
+                existing_ids = {i["id"] for i in items}
+                items.extend([i for i in catalog if i.get("id") not in existing_ids])
+            except Exception:
+                pass
     with file_lock(c.life / ".lifestyle-seed.lock"):
         existing = {i["id"] for i in presence.wardrobe(c)["items"]}
         fresh = [i for i in items if i["id"] not in existing]
