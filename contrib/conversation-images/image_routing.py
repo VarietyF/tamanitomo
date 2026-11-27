@@ -33,7 +33,7 @@ def route(profile):
         "[Current conversation image route — profile preference]\n"
         "This is a conversation turn, not the scheduled image-timeline job. "
         "When the human asks for a photo or picture, you must generate it before sending your reply.\n"
-        "1. Call the `terminal` tool function to execute `free_scene.py generate` using `--require-structured` and all 8 structured scene fields (plus optional `--details` and `--intimate` when eligible):\n"
+        "1. Call the `terminal` tool with the per-call argument `timeout=300` seconds (renders exceed the default 60 seconds) to execute `free_scene.py generate` using `--require-structured` and all 8 structured scene fields (plus optional `--details` and `--intimate` when eligible):\n"
         f"{cmd} generate --require-structured \\\n"
         '  --camera "framing, angle, shot type, lens/depth of field" \\\n'
         '  --subjects "who is in frame and their relative placement" \\\n'

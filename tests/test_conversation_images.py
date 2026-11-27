@@ -384,3 +384,13 @@ def test_pythonpath_isolation_in_free_scene(profile):
     res = subprocess.run(cmd, env=env, capture_output=True, text=True)
     assert res.returncode == 0, f"Failed with: {res.stderr}"
     assert "identity_reference" in res.stdout
+
+
+def test_conversation_image_route_sets_render_timeout(tmp_path):
+    instructions = routing.route(tmp_path)
+    assert "timeout=300" in instructions
+
+
+def test_image_timeline_recorded_portrait_uses_long_terminal_timeout():
+    template = Path(__file__).parents[1] / "kit/templates/cron/timeline.md.tmpl"
+    assert "timeout=300" in template.read_text()
