@@ -192,8 +192,10 @@ class UndressedPhotoTests(unittest.TestCase):
 
     def test_intimate_render_activates_insertion_lora_conditionally(self):
         loras = [
-            {"name": "MysticXXX-Moss-V1.safetensors", "strength": 1.0, "enabled": True, "triggers": ""},
-            {"name": "PornMaster_Moss_Insertion_V1.safetensors", "strength": 0.0, "enabled": False, "triggers": ""}
+            {"name": "Moss/ultra_real_moss_v3.safetensors", "strength": 0.5, "enabled": True, "triggers": ""},
+            {"name": "Moss/agrip_v1-MOSS.safetensors", "strength": 0.7, "enabled": False, "triggers": ""},
+            {"name": "Moss/anal_assitant_V1.safetensors", "strength": 0.4, "enabled": False, "triggers": ""},
+            {"name": "PornMaster_Moss_Insertion_V1.safetensors", "strength": 0.0, "enabled": False, "triggers": ""},
         ]
         draft = {
             "id": "draft",
@@ -205,26 +207,83 @@ class UndressedPhotoTests(unittest.TestCase):
                 "1": {"class_type": "CLIPTextEncode", "inputs": {"text": ""}},
                 "11": {
                     "class_type": "AUSBOSS_NODES_LoraLoader",
-                    "inputs": {"loras": json.dumps(loras), "on_missing": "skip"}
-                }
-            }
+                    "inputs": {"loras": json.dumps(loras), "on_missing": "skip"},
+                },
+            },
         }
-        # Non-intimate compilation: LoRA remains 0.0 / disabled
+        # Non-intimate compilation: UltraReal active at 0.5; intimate/explicit LoRAs disabled
         res_normal = media.compile(self.c, draft=draft, intimate=False)
-        wf_normal = res_normal["workflow"]
-        normal_loras = json.loads(wf_normal["11"]["inputs"]["loras"])
-        insertion_normal = next(l for l in normal_loras if "insertion" in l["name"].lower())
-        self.assertEqual(insertion_normal["strength"], 0.0)
-        self.assertFalse(insertion_normal["enabled"])
+        normal_loras = {l["name"]: l for l in json.loads(res_normal["workflow"]["11"]["inputs"]["loras"])}
+        self.assertEqual(normal_loras["Moss/ultra_real_moss_v3.safetensors"]["strength"], 0.5)
+        self.assertTrue(normal_loras["Moss/ultra_real_moss_v3.safetensors"]["enabled"])
+        self.assertEqual(normal_loras["Moss/agrip_v1-MOSS.safetensors"]["strength"], 0.0)
+        self.assertFalse(normal_loras["Moss/agrip_v1-MOSS.safetensors"]["enabled"])
+        self.assertEqual(normal_loras["Moss/anal_assitant_V1.safetensors"]["strength"], 0.0)
+        self.assertFalse(normal_loras["Moss/anal_assitant_V1.safetensors"]["enabled"])
+        self.assertEqual(normal_loras["PornMaster_Moss_Insertion_V1.safetensors"]["strength"], 0.0)
+        self.assertFalse(normal_loras["PornMaster_Moss_Insertion_V1.safetensors"]["enabled"])
 
-        # Intimate compilation: LoRA is conditionally activated at 0.95
+        # Intimate non-anal compilation: PornMaster activates at 0.95; anal LoRAs stay off
         with patch.object(media, "intimacy_gate", return_value=(True, [])):
             res_intimate = media.compile(self.c, draft=draft, intimate=True)
-            wf_intimate = res_intimate["workflow"]
-            intimate_loras = json.loads(wf_intimate["11"]["inputs"]["loras"])
-            insertion_intimate = next(l for l in intimate_loras if "insertion" in l["name"].lower())
-            self.assertEqual(insertion_intimate["strength"], 0.95)
-            self.assertTrue(insertion_intimate["enabled"])
+            intimate_loras = {l["name"]: l for l in json.loads(res_intimate["workflow"]["11"]["inputs"]["loras"])}
+            self.assertEqual(intimate_loras["PornMaster_Moss_Insertion_V1.safetensors"]["strength"], 0.95)
+            self.assertTrue(intimate_loras["PornMaster_Moss_Insertion_V1.safetensors"]["enabled"])
+            self.assertFalse(intimate_loras["Moss/agrip_v1-MOSS.safetensors"]["enabled"])
+            self.assertFalse(intimate_loras["Moss/anal_assitant_V1.safetensors"]["enabled"])
+
+            # Intimate anal scene: conservative tested weights activate for agrip (0.7) and anal_assitant (0.4)
+            res_anal = media.compile(
+                self.c,
+                overrides={"scene": "explicit anal pose in bedroom"},
+                draft=draft,
+                intimate=True,
+            )
+            anal_loras = {l["name"]: l for l in json.loads(res_anal["workflow"]["11"]["inputs"]["loras"])}
+            self.assertEqual(anal_loras["Moss/agrip_v1-MOSS.safetensors"]["strength"], 0.7)
+            self.assertTrue(anal_loras["Moss/agrip_v1-MOSS.safetensors"]["enabled"])
+            self.assertEqual(anal_loras["Moss/anal_assitant_V1.safetensors"]["strength"], 0.4)
+            self.assertTrue(anal_loras["Moss/anal_assitant_V1.safetensors"]["enabled"])
+
+    def test_moss_anime_only_harem_routing(self):
+        base_wf = {"1": {"class_type": "CLIPTextEncode", "inputs": {"text": ""}}}
+        cfg = {
+            "version": 1,
+            "presets": [
+                {
+                    "id": "moss-realistic",
+                    "name": "Dirty Moss v2",
+                    "provider": "comfyui",
+                    "endpoint": "http://127.0.0.1:8188",
+                    "category": "realistic",
+                    "parts": {},
+                    "workflow": base_wf,
+                    "mappings": {"prompt": ["1", "text"]},
+                },
+                {
+                    "id": "moss-miaomiao",
+                    "name": "MiaoMiao Harem MOSS",
+                    "provider": "comfyui",
+                    "endpoint": "http://127.0.0.1:8188",
+                    "category": "anime",
+                    "parts": {},
+                    "workflow": base_wf,
+                    "mappings": {"prompt": ["1", "text"]},
+                },
+            ],
+            "routes": {
+                "portrait": "moss-realistic",
+                "realistic": "moss-realistic",
+                "anime": "moss-miaomiao",
+                "landscape": "moss-realistic",
+                "other": "moss-realistic",
+            },
+            "default_preset": "moss-realistic",
+        }
+        media.save(self.c, cfg, media.revision(self.c))
+        for cat in ("portrait", "realistic", "landscape", "other"):
+            self.assertEqual(media.compile(self.c, category=cat)["preset"]["id"], "moss-realistic")
+        self.assertEqual(media.compile(self.c, category="anime")["preset"]["id"], "moss-miaomiao")
 
 
 if __name__ == "__main__":

@@ -348,18 +348,6 @@
         ]
       }
     },
-    "11": {
-      "class_type": "AUSBOSS_NODES_LoraLoader",
-      "inputs": {
-        "loras": "[{\"name\": \"lora_latest.safetensors\", \"strength\": 0.7, \"enabled\": false, \"triggers\": \"\"}, {\"name\": \"MOSS-Image-SFT-4-steps.safetensors\", \"strength\": 1, \"enabled\": false, \"triggers\": \"\"}, {\"name\": \"MysticXXX-Moss-V1.safetensors\", \"strength\": 1, \"enabled\": true, \"triggers\": \"\"}, {\"name\": \"PornMaster_Moss_Insertion_V1.safetensors\", \"strength\": 0.0, \"enabled\": false, \"triggers\": \"\"}]",
-        "trigger_separator": ", ",
-        "on_missing": "skip",
-        "model": [
-          "10",
-          0
-        ]
-      }
-    },
     "10": {
       "class_type": "UNETLoader",
       "inputs": {

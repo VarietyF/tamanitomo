@@ -903,6 +903,9 @@ def compile(
         if key in values:
             workflow[str(node)]["inputs"][field] = values[key]
     if p.get("provider") == "comfyui":
+        anal_scene = bool(
+            intimate and re.search(r"\b(anal|anus|buttplug|rimming)\b", prompt, re.I)
+        )
         for node in workflow.values():
             if node.get("class_type") == "AUSBOSS_NODES_LoraLoader":
                 raw_loras = node.get("inputs", {}).get("loras", "[]")
@@ -910,9 +913,22 @@ def compile(
                     loras_list = json.loads(raw_loras) if isinstance(raw_loras, str) else raw_loras
                     changed = False
                     for item in loras_list:
-                        if "insertion" in item.get("name", "").lower() or "pornmaster" in item.get("name", "").lower():
+                        lname = item.get("name", "").lower()
+                        if "insertion" in lname or "pornmaster" in lname:
                             item["strength"] = 0.95 if intimate else 0.0
                             item["enabled"] = bool(intimate)
+                            changed = True
+                        elif "ultra_real" in lname:
+                            item["strength"] = 0.5
+                            item["enabled"] = True
+                            changed = True
+                        elif "agrip" in lname:
+                            item["strength"] = 0.7 if anal_scene else 0.0
+                            item["enabled"] = anal_scene
+                            changed = True
+                        elif "anal_assitant" in lname or "anal_assistant" in lname:
+                            item["strength"] = 0.4 if anal_scene else 0.0
+                            item["enabled"] = anal_scene
                             changed = True
                     if changed:
                         node["inputs"]["loras"] = json.dumps(loras_list)
