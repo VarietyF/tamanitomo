@@ -1,3 +1,36 @@
+## 3.36.0 — Her far memory (2026-11-27)
+
+- **Recall reaches the far past again.** `companion_transcript` search ORed the query words and read the 200
+  newest matches, so one common word on hundreds of recent messages kept an old message holding every word
+  from ever being read; ranking afterwards could not bring back what was never fetched. Candidates now come in
+  tiers (every word, then any two, then any one), each newest first and bounded, deduplicated. On a real
+  history, her search found 6 of 15 of the human's own lines from a month or more ago before, and 50 of 50 after;
+  a search still takes well under a tenth of a second.
+- **Her recall, drilled weekly** (`companion_watch.check_recall`, in the hourly health watch, no model): a few of
+  the human's own lines at least 30 days old, sampled from the vault's conversation archive, each searched by its
+  most distinctive words the way her recall tool searches; two or more misses raise a problem, with the dates.
+  The verdict is kept in `state/recall-drill.json`; `companion_watch.py --recall-drill` tries again now.
+
+## 3.35.0 — A touch, now and then (2026-11-27)
+
+- **A thought of them can become a touch on their watch.** The autonomy job's outreach rules gain
+  `{{WATCH_TOUCH}}` (rendered only with a device bridge): the wordless "thinking of you" that is never worth a
+  text is presence on the wrist, queued as `"target":"watch", "buzz":"tap"` with a few words of her own, not
+  every day and never twice in one. It counts like any message, so the daily cap, quiet hours and (with the
+  sleep sense) their sleep still decide whether it goes. Run Repair once to re-render the job's prompt.
+- `companion_body.py status` tells "awake, since when unknown" apart from "no fresh word".
+
+## 3.34.0 — Their sleep (2026-11-27)
+
+- **Her messages wait while they sleep, and her good morning comes when they are up.** A new `sleep` sense reads
+  `ambient/body.json`, which a watch or wearable client writes (`checked_at`, `asleep`, `since`, `slept_minutes`,
+  `source`; fresh for 30 minutes). The dispatcher (`companion_dispatch.verdict`, through `wearable_says`) holds
+  anything that is not high priority while the device says they are asleep outside quiet hours (a lie-in, a nap),
+  and lifts quiet hours once they have been up ten minutes within the night's last three hours, as writing to her
+  already did; a 2 am wake never does. Her context gets a "Their sleep" line (asleep since when, or awake since this
+  morning after how long). `companion_body.py`; no model calls; a stale or missing file changes nothing. Settings ->
+  Realism -> Little things -> Their sleep.
+
 ## 3.33.1 — Comings and goings, built (2026-11-27)
 
 - **The release build passes where ffmpeg is absent.** `test_reading_is_refused_when_it_would_crowd_the_network`
