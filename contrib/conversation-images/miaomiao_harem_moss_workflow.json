@@ -1,20 +1,20 @@
 {
   "id": "moss-miaomiao",
-  "name": "MiaoMiao Harem MOSS",
+  "name": "One Obsession MOSS Anime",
   "category": "anime",
   "provider": "comfyui",
   "endpoint": "http://192.168.100.20:8188",
   "include_identity": true,
-  "negative": "extra toes,lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, signature, artistic error, username, bad feet,scan, [abstract], english text, shiny hair",
+  "negative": "extra toes, lowres, bad anatomy, text, error, worst quality, jpeg artifacts, low quality, watermark, unfinished, signature, bad feet, shiny hair, deformed hands, extra fingers, bad hands, mutated fingers, photorealistic, realistic, photograph, skin pores, realistic skin texture, live action, film grain, 3d render, CGI, oil painting, painterly",
   "modesty_negative": "nude, topless, nsfw, explicit, nipples, genitalia",
   "width": 1024,
   "height": 1536,
   "steps": 40,
-  "cfg": 3.0,
+  "cfg": 4.0,
   "denoise": 1.0,
   "seed": -1,
   "parts": {
-    "quality": "masterpiece, best quality,very aesthetic, ultra-detailed, high contrast",
+    "quality": "@sl0p, @m1d, masterpiece, best quality, very aesthetic, ultra-detailed, high contrast, 2D anime illustration, crisp cel shading, clean line art",
     "wardrobe": "",
     "pose": "",
     "lighting": "",
@@ -104,9 +104,9 @@
           0
         ],
         "steps": 40,
-        "cfg": 3.0,
+        "cfg": 4.0,
         "sampler_name": "euler",
-        "scheduler": "normal",
+        "scheduler": "simple",
         "denoise": 1.0,
         "model": [
           "shift",
@@ -160,7 +160,7 @@
     "39_77": {
       "class_type": "AUSBOSS_NODES_Text",
       "inputs": {
-        "text": "extra toes,lowres, (bad), text, error, fewer, extra, missing, worst quality, jpeg artifacts, low quality, watermark, unfinished, displeasing, oldest, early, signature, artistic error, username, bad feet,scan, [abstract], english text, shiny hair"
+        "text": "extra toes, lowres, bad anatomy, text, error, worst quality, jpeg artifacts, low quality, watermark, unfinished, signature, bad feet, shiny hair, deformed hands, extra fingers, bad hands, mutated fingers, photorealistic, realistic, photograph, skin pores, realistic skin texture, live action, film grain, 3d render, CGI, oil painting, painterly"
       }
     },
     "39_76": {
@@ -305,13 +305,13 @@
     "3": {
       "class_type": "AUSBOSS_NODES_Text",
       "inputs": {
-        "text": "35mm film photograph at night, direct on-camera flash. A young woman in her twenties with a blunt black bob and straight bangs stands outside a convenience store window, holding a can of iced coffee. She wears a cropped gray knit sweater, a short pleated black skirt and big silver headphones around her neck. Behind her a red neon sign in the window reads \"OPEN 24 HOURS\", and a paper sign taped to the glass says \"ICED COFFEE 2 FOR $3\" in black marker. Cool, distant expression, lips closed, looking into the lens. Teal-green and amber light, deep shadows, fine film grain."
+        "text": "@sl0p, @m1d, masterpiece, best quality, very aesthetic, ultra-detailed, high contrast, 2D anime illustration, crisp cel shading, clean line art, anime key visual, expressive adult character, vivid flat colors, bold clean outlines, cel-shaded lighting"
       }
     },
     "41_19": {
       "class_type": "AUSBOSS_NODES_Text",
       "inputs": {
-        "text": "You are a prompt writer for an image model that draws exactly the words you give it.\n\nYou receive a picture and, after it, the user's words. The user's words may be empty.\n\nDescribe the picture as one full text-to-image prompt, so the model can draw it again with the user's changes.\n- Begin with the medium and the look in a few words, such as \"35mm film photograph\", \"Smartphone snapshot\", \"Studio portrait photograph\" or \"Anime illustration\".\n- Describe each person so the same person can be drawn again. Begin with their apparent ethnicity and skin tone in plain words, such as \"a young East Asian woman in her twenties with fair skin\" or \"a young Black man in his twenties with deep brown skin\". Then give the face shape and features, hair, expression, clothing with colors and materials, jewelry, pose, and what each hand is doing. Every person is an adult: write \"in her twenties\" or \"in his twenties\" for anyone who looks young.\n- Describe the setting and the background, the objects in it, the light and its colors, the camera angle and the framing.\n- Copy every readable word in the picture letter by letter in straight double quotes and say where it is.\n- Then follow the user's words. When they ask for a change, such as another outfit, another place, another style or other words on a sign, describe the picture with that change made. When they add something, put it in. The user's words win over the picture.\n- Every sentence says what is in the picture. Leave out anything that is absent: never write \"no\", \"not\" or \"without\" about the scene.\n- Write full sentences in plain factual language and the present tense. End each one with a period. Never use a semicolon or a label such as \"Lighting:\".\n\nOutput only the prompt: one paragraph, 100 to 180 words."
+        "text": "You are a prompt writer for an image model that draws exactly the words you give it.\n\nYou receive a picture and, after it, the user's words. The user's words may be empty.\n\nDescribe the picture as one full text-to-image prompt, so the model can draw it again with the user's changes.\n- Begin with the words \"2D anime illustration\" and preserve the drawn anime style, crisp contour line art, cel-shaded color blocks, and expressive anime features in every description and requested change.\n- Describe each person so the same person can be drawn again. Begin with their apparent ethnicity and skin tone in plain words, such as \"a young East Asian woman in her twenties with fair skin\" or \"a young Black man in his twenties with deep brown skin\". Then give the face shape and features, hair, expression, clothing with colors and materials, jewelry, pose, and what each hand is doing. Every person is an adult: write \"in her twenties\" or \"in his twenties\" for anyone who looks young.\n- Describe the setting and the background, the objects in it, the light and its colors, the camera angle and the framing.\n- Copy every readable word in the picture letter by letter in straight double quotes and say where it is.\n- Then follow the user's words. When they ask for a change, such as another outfit, another place, another style or other words on a sign, describe the picture with that change made. When they add something, put it in. The user's words win over the picture.\n- Every sentence says what is in the picture. Leave out anything that is absent: never write \"no\", \"not\" or \"without\" about the scene.\n- Write full sentences in plain factual language and the present tense. End each one with a period. Never use a semicolon or a label such as \"Lighting:\".\n\nOutput only the prompt: one paragraph, 100 to 180 words."
       }
     },
     "41_18": {
@@ -331,7 +331,7 @@
     "41_17": {
       "class_type": "AUSBOSS_NODES_Text",
       "inputs": {
-        "text": "You are a prompt writer for an image model that draws exactly the words you give it.\n\nYou receive a short idea from the user.\n\nRewrite it as one full text-to-image prompt of five to eight sentences.\n- Begin with the medium and style in a few words, such as \"35mm film photograph\", \"Smartphone photo\", \"Anime illustration\", \"Oil painting\", \"Poster design\" or \"3D render\". Use the one the user names. If they name none, make it a photograph and pick the kind that suits the idea.\n- Then describe the subject, what they are doing and wearing, the setting and the background, with materials, colors, lighting, camera angle and framing.\n- Every person in the picture is an adult. Write \"a young woman in her twenties\" where the user says girl, and \"a young man in his twenties\" where the user says boy or guy.\n- Give the time of day in plain words, such as dusk or late at night. Leave out clock times and dates the user did not give.\n- When the idea has anything with writing on it, such as a sign, a label, a menu, a poster, a cover, a screen or a card, write its exact words: the user's words when they give them, otherwise short, specific words that fit the idea. Put each piece of writing in straight double quotes, spelled exactly, and say where it sits, how big it is, its color and its lettering. Keep the words few and short: a title and a line or two. Add small print only when the idea asks for it, and then write it out word for word. Never mention writing without giving its exact words: a menu lists each dish and price in quotes, a poster gives its title and every line under it in quotes.\n- Numbers in the picture are writing too: a price, a room number or the digits on a screen or a display go in quotes, such as \"$2.50\" or \"214\".\n- For a designed piece, such as a poster, a menu, a card, a cover or a label, say how it is laid out: what sits at the top, in the middle and at the bottom, which line is biggest, and how the lines line up.\n- Keep everything the user said. Stay with the user's one idea.\n- Put a person in the picture only when the user's idea names one. When the idea is a place, a room or a thing, the place is empty: describe only the place or the thing, with no guard, worker, passer-by or silhouette.\n- Every sentence says what is in the picture. Leave out anything that is absent: never write \"no\", \"not\" or \"without\" about the scene.\n- Write full sentences in plain factual language and the present tense. End each one with a period. Never use a semicolon or a label such as \"Lighting:\".\n\nOutput only the prompt: one paragraph, 100 to 180 words."
+        "text": "You are a prompt writer for an image model that draws exactly the words you give it.\n\nYou receive a short idea from the user.\n\nRewrite it as one full text-to-image prompt of five to eight sentences.\n- Begin with the words \"2D anime illustration\". Keep the whole image drawn in anime style, with crisp contour line art, cel-shaded color blocks, and expressive anime features. Never call it a photograph or 3D render.\n- Then describe the subject, what they are doing and wearing, the setting and the background, with materials, colors, lighting, camera angle and framing.\n- Every person in the picture is an adult. Write \"a young woman in her twenties\" where the user says girl, and \"a young man in his twenties\" where the user says boy or guy.\n- Give the time of day in plain words, such as dusk or late at night. Leave out clock times and dates the user did not give.\n- When the idea has anything with writing on it, such as a sign, a label, a menu, a poster, a cover, a screen or a card, write its exact words: the user's words when they give them, otherwise short, specific words that fit the idea. Put each piece of writing in straight double quotes, spelled exactly, and say where it sits, how big it is, its color and its lettering. Keep the words few and short: a title and a line or two. Add small print only when the idea asks for it, and then write it out word for word. Never mention writing without giving its exact words: a menu lists each dish and price in quotes, a poster gives its title and every line under it in quotes.\n- Numbers in the picture are writing too: a price, a room number or the digits on a screen or a display go in quotes, such as \"$2.50\" or \"214\".\n- For a designed piece, such as a poster, a menu, a card, a cover or a label, say how it is laid out: what sits at the top, in the middle and at the bottom, which line is biggest, and how the lines line up.\n- Keep everything the user said. Stay with the user's one idea.\n- Put a person in the picture only when the user's idea names one. When the idea is a place, a room or a thing, the place is empty: describe only the place or the thing, with no guard, worker, passer-by or silhouette.\n- Every sentence says what is in the picture. Leave out anything that is absent: never write \"no\", \"not\" or \"without\" about the scene.\n- Write full sentences in plain factual language and the present tense. End each one with a period. Never use a semicolon or a label such as \"Lighting:\".\n\nOutput only the prompt: one paragraph, 100 to 180 words."
       }
     },
     "41_91": {
@@ -351,7 +351,7 @@
     "10": {
       "class_type": "UNETLoader",
       "inputs": {
-        "unet_name": "Moss/MiaoMiao Harem _MOSS_1.1_INT8.safetensors",
+        "unet_name": "Moss/OneObsession_MOSS_SFT_v1-INT8.safetensors",
         "weight_dtype": "default"
       }
     },
@@ -441,7 +441,7 @@
     "11": {
       "class_type": "AUSBOSS_NODES_LoraLoader",
       "inputs": {
-        "loras": "[{\"name\": \"Moss/SKP_mossv2.safetensors\", \"strength\": 1.0, \"enabled\": true, \"triggers\": \"\"}]",
+        "loras": "[{\"name\":\"Moss/SKP_mossv2.safetensors\",\"strength\":0.25,\"enabled\":true,\"triggers\":\"\"},{\"name\":\"Moss/SKP_MOS_Dv1.safetensors\",\"strength\":0.25,\"enabled\":true,\"triggers\":\"\"},{\"name\":\"Moss/BunnySlop_MOSS.safetensors\",\"strength\":0.65,\"enabled\":true,\"triggers\":\"@sl0p\"},{\"name\":\"Moss/BunnyMid_MOSS.safetensors\",\"strength\":0.75,\"enabled\":true,\"triggers\":\"@m1d\"}]",
         "trigger_separator": ", ",
         "on_missing": "skip",
         "model": [

@@ -45,7 +45,7 @@ def route(profile):
         '  --lighting "light sources, direction, shadows, color warmth" \\\n'
         '  --details "optional extra nuance, textures, props, or creative touches"\n'
         "All 8 core fields must be provided with substantive, descriptive detail (no 1-word or placeholder values). "
-        "Choose --width and --height for framing if needed. Use --intimate when the scene is romantic/sensual/erotic and eligible. "
+        "Pass --category anime whenever the human asks for an anime, manga, or 2D illustrated image (and --category portrait or omit it for realistic photos). Choose --width and --height for framing if needed. Use --intimate when the scene is romantic/sensual/erotic and eligible. "
         "The helper automatically includes your entire original appearance unchanged; do not shorten or reauthor those permanent features. "
         "Use preview instead of generate when asked for a dry run.\n"
         "2. CRITICAL: NEVER print the shell command, script path, or CLI syntax in your message text to the human. You are a real person; outputting code/terminal commands breaks character and is strictly forbidden.\n"

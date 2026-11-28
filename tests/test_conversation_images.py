@@ -295,13 +295,23 @@ def test_structured_scene_prompt_assembly_without_details(profile):
     prompt = compiled["prompt"]
     assert prompt.count(IDENTITY) == 1
     assert "Nova only, not other people" in prompt
-    assert prompt.index(VALID_STRUCTURED_REQUEST["camera"]) < prompt.index(VALID_STRUCTURED_REQUEST["subjects"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["camera"]) < prompt.index(
+        VALID_STRUCTURED_REQUEST["subjects"]
+    )
     assert prompt.index(VALID_STRUCTURED_REQUEST["subjects"]) < prompt.index(IDENTITY)
     assert prompt.index(IDENTITY) < prompt.index(VALID_STRUCTURED_REQUEST["expression"])
-    assert prompt.index(VALID_STRUCTURED_REQUEST["expression"]) < prompt.index(VALID_STRUCTURED_REQUEST["pose"])
-    assert prompt.index(VALID_STRUCTURED_REQUEST["pose"]) < prompt.index(VALID_STRUCTURED_REQUEST["clothing"])
-    assert prompt.index(VALID_STRUCTURED_REQUEST["clothing"]) < prompt.index(VALID_STRUCTURED_REQUEST["setting"])
-    assert prompt.index(VALID_STRUCTURED_REQUEST["setting"]) < prompt.index(VALID_STRUCTURED_REQUEST["lighting"])
+    assert prompt.index(VALID_STRUCTURED_REQUEST["expression"]) < prompt.index(
+        VALID_STRUCTURED_REQUEST["pose"]
+    )
+    assert prompt.index(VALID_STRUCTURED_REQUEST["pose"]) < prompt.index(
+        VALID_STRUCTURED_REQUEST["clothing"]
+    )
+    assert prompt.index(VALID_STRUCTURED_REQUEST["clothing"]) < prompt.index(
+        VALID_STRUCTURED_REQUEST["setting"]
+    )
+    assert prompt.index(VALID_STRUCTURED_REQUEST["setting"]) < prompt.index(
+        VALID_STRUCTURED_REQUEST["lighting"]
+    )
 
 
 def test_structured_scene_prompt_assembly_with_details(profile):
@@ -309,8 +319,12 @@ def test_structured_scene_prompt_assembly_with_details(profile):
     req["details"] = "Light steam rising from a ceramic mug, hair softly tousled"
     *_, compiled = scene.prepare(profile, req)
     prompt = compiled["prompt"]
-    assert prompt.endswith("Light steam rising from a ceramic mug, hair softly tousled.")
-    assert prompt.index(VALID_STRUCTURED_REQUEST["lighting"]) < prompt.index(req["details"])
+    assert prompt.endswith(
+        "Light steam rising from a ceramic mug, hair softly tousled."
+    )
+    assert prompt.index(VALID_STRUCTURED_REQUEST["lighting"]) < prompt.index(
+        req["details"]
+    )
 
 
 @pytest.mark.parametrize(
@@ -338,14 +352,18 @@ def test_structured_scene_prompt_assembly_with_details(profile):
         ),
     ],
 )
-def test_structured_validation_rejects_missing_or_thin_fields(profile, bad_request, expected_error):
+def test_structured_validation_rejects_missing_or_thin_fields(
+    profile, bad_request, expected_error
+):
     with pytest.raises(ValueError, match=expected_error):
         scene.prepare(profile, bad_request)
 
 
 def test_require_structured_flag_enforces_structured_mode(profile):
     with pytest.raises(ValueError, match="Structured scene validation failed:"):
-        scene.prepare(profile, {"prompt": "Valid legacy prompt", "require_structured": True})
+        scene.prepare(
+            profile, {"prompt": "Valid legacy prompt", "require_structured": True}
+        )
 
 
 def test_permanent_appearance_preserved_in_structured_mode(profile):
@@ -370,6 +388,7 @@ def test_legacy_prompt_backwards_compatibility(profile):
 
 def test_pythonpath_isolation_in_free_scene(profile):
     import subprocess
+
     cmd = [
         str(ROOT / ".venv/bin/python"),
         str(ROOT / "contrib/conversation-images/free_scene.py"),
@@ -379,8 +398,11 @@ def test_pythonpath_isolation_in_free_scene(profile):
     ]
     env = dict(ROOT.stat() and {})  # clean dict
     import os
+
     env = os.environ.copy()
-    env["PYTHONPATH"] = "/home/martin/.hermes/installs/fe157ff7eb823b1d/environments/4d1386e8ee4842fcbfb9e1d38193ed85/venv/lib/python3.14/site-packages"
+    env["PYTHONPATH"] = (
+        "/home/martin/.hermes/installs/fe157ff7eb823b1d/environments/4d1386e8ee4842fcbfb9e1d38193ed85/venv/lib/python3.14/site-packages"
+    )
     res = subprocess.run(cmd, env=env, capture_output=True, text=True)
     assert res.returncode == 0, f"Failed with: {res.stderr}"
     assert "identity_reference" in res.stdout
@@ -394,3 +416,53 @@ def test_conversation_image_route_sets_render_timeout(tmp_path):
 def test_image_timeline_recorded_portrait_uses_long_terminal_timeout():
     template = Path(__file__).parents[1] / "kit/templates/cron/timeline.md.tmpl"
     assert "timeout=300" in template.read_text()
+
+
+def test_anime_category_and_keyword_routing_select_anime_preset(tmp_path):
+    c = cc.Companion(
+        agent="Nova",
+        human="Alex",
+        hermes_root=tmp_path / "home",
+        vault=tmp_path / "vault",
+    )
+    c.home.mkdir(parents=True)
+    anime_preset = {
+        **copy.deepcopy(PRESET),
+        "id": "moss-miaomiao",
+        "category": "anime",
+        "parts": {
+            "quality": "@sl0p, @m1d, masterpiece, best quality",
+            "wardrobe": "canned",
+        },
+    }
+    recipe = {
+        "routes": {"portrait": "studio", "anime": "moss-miaomiao"},
+        "presets": [copy.deepcopy(PRESET), anime_preset],
+    }
+    recorded = {key: "recorded " + key for key in media.PARTS}
+    with (
+        patch.object(media, "effective", return_value=recipe),
+        patch.object(portrait, "identity_block", return_value=IDENTITY),
+        patch.object(portrait, "recorded_parts", return_value=recorded),
+    ):
+        *_, compiled_explicit = scene.prepare(
+            c, {**VALID_STRUCTURED_REQUEST, "category": "anime"}
+        )
+        assert compiled_explicit["preset"]["id"] == "moss-miaomiao"
+        assert compiled_explicit["prompt"].startswith(
+            "@sl0p, @m1d, masterpiece, best quality"
+        )
+
+        anime_req = {
+            **VALID_STRUCTURED_REQUEST,
+            "camera": "medium shot, crisp anime illustration, vibrant cel shading",
+        }
+        *_, compiled_inferred = scene.prepare(c, anime_req)
+        assert compiled_inferred["preset"]["id"] == "moss-miaomiao"
+        assert compiled_inferred["prompt"].startswith(
+            "@sl0p, @m1d, masterpiece, best quality"
+        )
+
+        *_, compiled_default = scene.prepare(c, dict(VALID_STRUCTURED_REQUEST))
+        assert compiled_default["preset"]["id"] == "studio"
+        assert "canned" not in compiled_default["prompt"]

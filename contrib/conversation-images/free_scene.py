@@ -10,7 +10,9 @@ from pathlib import Path
 # If executed under a foreign python (like Hermes python3.14 runner), re-exec using project venv
 _VENV_PY = Path(__file__).resolve().parents[2] / ".venv/bin/python"
 if _VENV_PY.is_file() and sys.executable != str(_VENV_PY):
-    _clean_env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "VIRTUAL_ENV")}
+    _clean_env = {
+        k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "VIRTUAL_ENV")
+    }
     _clean_env["PATH"] = f"{_VENV_PY.parent}:{_clean_env.get('PATH', '')}"
     os.execve(str(_VENV_PY), [str(_VENV_PY)] + sys.argv, _clean_env)
 
@@ -18,14 +20,12 @@ if _VENV_PY.is_file() and sys.executable != str(_VENV_PY):
 os.environ.pop("PYTHONPATH", None)
 os.environ.pop("VIRTUAL_ENV", None)
 _current_py = f"python{sys.version_info.major}.{sys.version_info.minor}"
-sys.path = [
-    p for p in sys.path
-    if not ("site-packages" in p and _current_py not in p)
-]
+sys.path = [p for p in sys.path if not ("site-packages" in p and _current_py not in p)]
 
 import argparse
 import copy
 import json
+import re
 
 KIT = Path(__file__).resolve().parents[2] / "kit/scripts"
 sys.path.insert(0, str(KIT))
@@ -35,7 +35,6 @@ import companion_media as media
 import companion_media_review as review
 import companion_portrait as portrait
 from companion_platform import atomic_write
-
 
 STRUCTURED_FIELDS = (
     "subjects",
@@ -90,7 +89,9 @@ def validate_structured_fields(request):
     errors = []
     for field in STRUCTURED_FIELDS:
         if field not in request:
-            errors.append(f"{field}: missing required field ({FIELD_DESCRIPTIONS[field]})")
+            errors.append(
+                f"{field}: missing required field ({FIELD_DESCRIPTIONS[field]})"
+            )
             continue
         val = request[field]
         if not isinstance(val, str) or not val.strip():
@@ -192,12 +193,53 @@ def with_permanent_identity(c, authored_prompt):
     return identity, submitted
 
 
+_ANIME_STYLE_RE = re.compile(
+    r"\b(anime|manga|cel[- ]?shad\w*|2d\s+(?:art|illustration|drawing))\b",
+    re.I,
+)
+_PHOTO_STYLE_RE = re.compile(
+    r"\b(photorealistic|35mm|film\s+photo\w*|live[- ]action|dslr|photograph)\b",
+    re.I,
+)
+
+
+def infer_category(request, recipe):
+    """Select anime route for explicit category/preset or anime scene prompts."""
+    explicit = request.get("category")
+    if explicit is not None:
+        if explicit not in media.CATEGORIES:
+            raise ValueError("Choose an image category")
+        return explicit
+    preset_id = request.get("preset")
+    if preset_id:
+        match = next(
+            (p for p in recipe.get("presets", []) if p.get("id") == preset_id),
+            None,
+        )
+        if match and match.get("category") in media.CATEGORIES:
+            return match["category"]
+        return "portrait"
+    routes = recipe.get("routes", {})
+    if "anime" in routes:
+        chunks = [str(request.get("prompt", ""))]
+        chunks.extend(
+            str(request.get(field, ""))
+            for field in STRUCTURED_FIELDS + OPTIONAL_FIELDS
+            if request.get(field)
+        )
+        combined = " ".join(chunks)
+        if _ANIME_STYLE_RE.search(combined) and not _PHOTO_STYLE_RE.search(combined):
+            return "anime"
+    return "portrait"
+
+
 def prepare(c, request):
     if not isinstance(request, dict):
         raise ValueError("The request must be a JSON object")
     permitted = {
         "prompt",
         "preset",
+        "category",
         "intimate",
         "seed",
         "width",
@@ -229,12 +271,16 @@ def prepare(c, request):
                 + "\n".join(f"- {e}" for e in errors)
                 + "\nAll 8 core fields (subjects, setting, clothing, action, pose, expression, camera, lighting) must be substantively detailed."
             )
-        identity, submitted_prompt, authored_prompt = assemble_structured_prompt(c, request)
+        identity, submitted_prompt, authored_prompt = assemble_structured_prompt(
+            c, request
+        )
         prompt = authored_prompt
     else:
         prompt = request.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip():
-            raise ValueError("Write the complete image prompt in prompt or use structured scene fields")
+            raise ValueError(
+                "Write the complete image prompt in prompt or use structured scene fields"
+            )
         # This is the normalization performed by the native comma-join compiler.
         prompt = prompt.strip().rstrip(",")
         if not prompt or len(prompt) > 24000:
@@ -248,9 +294,10 @@ def prepare(c, request):
     if purpose not in ("creation", "capture"):
         raise ValueError("purpose must be creation or capture")
     recipe = media.effective(c)
+    category = infer_category(request, recipe)
     ident = (
         request.get("preset")
-        or recipe.get("routes", {}).get("portrait")
+        or recipe.get("routes", {}).get(category)
         or recipe.get("default_preset")
     )
     if not isinstance(ident, str):
@@ -277,13 +324,20 @@ def prepare(c, request):
     # The authored scene and full permanent identity reach positive conditioning.
     # No canned scene, pose, wardrobe or saved preset is edited or added.
     overrides = {part: "" for part in media.PARTS}
+    anime_quality = (
+        preset.get("parts", {}).get("quality", "").strip().rstrip(",")
+        if preset.get("category") == "anime"
+        else ""
+    )
+    if anime_quality and not submitted_prompt.startswith(anime_quality):
+        submitted_prompt = f"{anime_quality}, {submitted_prompt}"
     overrides["scene"] = submitted_prompt
     if "seed" in request:
         seed = request["seed"]
         if type(seed) is not int or seed < -1 or seed >= 2**63:
             raise ValueError("seed must be -1 or a nonnegative 63-bit integer")
         overrides["seed"] = seed
-    compiled = media.compile(c, ident, "portrait", overrides, draft, intimate)
+    compiled = media.compile(c, ident, category, overrides, draft, intimate)
     if compiled["reference_image"]:
         raise ValueError(
             "This preset uses a reference image; choose a text-to-image preset for a free scene"
@@ -417,22 +471,38 @@ def main():
         help="JSON file containing a complete prompt or structured fields and optional settings",
     )
     parser.add_argument(
-        "--prompt", help="Complete authored prompt; legacy mode or JSON file for longer text"
+        "--prompt",
+        help="Complete authored prompt; legacy mode or JSON file for longer text",
     )
     parser.add_argument(
         "--require-structured",
         action="store_true",
         help="Require all 8 structured scene fields and validate them",
     )
-    parser.add_argument("--subjects", help="Who is in frame and their relative placement")
-    parser.add_argument("--setting", help="Location/room, background objects, time of day, atmosphere")
-    parser.add_argument("--clothing", help="Exact outfit, fabrics, colors, fit, or state of dress")
+    parser.add_argument(
+        "--subjects", help="Who is in frame and their relative placement"
+    )
+    parser.add_argument(
+        "--setting", help="Location/room, background objects, time of day, atmosphere"
+    )
+    parser.add_argument(
+        "--clothing", help="Exact outfit, fabrics, colors, fit, or state of dress"
+    )
     parser.add_argument("--action", help="What she / subjects are actively doing")
-    parser.add_argument("--pose", help="Body posture, hand/limb placement, head/torso angle")
+    parser.add_argument(
+        "--pose", help="Body posture, hand/limb placement, head/torso angle"
+    )
     parser.add_argument("--expression", help="Facial expression, gaze direction, mood")
-    parser.add_argument("--camera", help="Framing, shot type, angle, lens/POV/mirror/depth of field")
-    parser.add_argument("--lighting", help="Light sources, direction, shadows, color warmth")
-    parser.add_argument("--details", help="Optional extra nuance, props, textures, hair state, or creative touches")
+    parser.add_argument(
+        "--camera", help="Framing, shot type, angle, lens/POV/mirror/depth of field"
+    )
+    parser.add_argument(
+        "--lighting", help="Light sources, direction, shadows, color warmth"
+    )
+    parser.add_argument(
+        "--details",
+        help="Optional extra nuance, props, textures, hair state, or creative touches",
+    )
 
     parser.add_argument(
         "--intimate",
@@ -440,6 +510,7 @@ def main():
         help="Choose an intimate image using existing eligibility checks",
     )
     parser.add_argument("--preset")
+    parser.add_argument("--category", choices=media.CATEGORIES)
     parser.add_argument("--width", type=int)
     parser.add_argument("--height", type=int)
     parser.add_argument("--seed", type=int)
@@ -473,14 +544,18 @@ def main():
             if val is not None:
                 request[field] = val
 
-        if not request.get("prompt") and not any(k in request for k in STRUCTURED_FIELDS) and not args.request:
+        if (
+            not request.get("prompt")
+            and not any(k in request for k in STRUCTURED_FIELDS)
+            and not args.request
+        ):
             raise ValueError("Provide structured scene fields, --prompt, or --request")
 
         if args.intimate:
             if not isinstance(request, dict):
                 raise ValueError("The request must be a JSON object")
             request["intimate"] = True
-        for key in ("preset", "width", "height", "seed"):
+        for key in ("preset", "category", "width", "height", "seed"):
             if getattr(args, key) is not None:
                 request[key] = getattr(args, key)
         if args.capture:
